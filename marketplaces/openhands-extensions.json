@@ -920,6 +920,20 @@
         "jev",
         "classification"
       ]
+    },
+    {
+      "name": "compound-engineering",
+      "source": "./plugins/compound-engineering",
+      "description": "Brainstorm, plan, build, review, and compound learnings with AI agents. Bundles 36 skills for planning, code review, debugging, and git workflows.",
+      "category": "code-quality",
+      "keywords": [
+        "compound-engineering",
+        "brainstorming",
+        "planning",
+        "code-review",
+        "debugging",
+        "workflow"
+      ]
     }
   ]
 }
