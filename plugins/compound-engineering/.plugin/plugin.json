@@ -1,4 +1,5 @@
 {
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "compound-engineering",
   "version": "3.30.3",
   "description": "Compound Engineering - brainstorm, plan, build, review, and compound learnings with AI agents. Bundles 36 skills for planning, code review, debugging, and git workflows.",

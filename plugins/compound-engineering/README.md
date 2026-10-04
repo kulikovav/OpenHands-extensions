@@ -55,6 +55,8 @@ create that configuration and report optional tool capabilities.
 The upstream content is copied with these mechanical changes only:
 
 - `argument-hint` frontmatter was removed. OpenHands does not use it.
+- The manifest carries `$schema: https://agent-plugins.org/schemas/1.0.0/plugin.schema.json`.
+  The Agent Plugins format requires this field and rejects a manifest without it.
 - A `triggers` list with the skill name was added to every `SKILL.md`. Without a
   trigger, the OpenHands SDK loads a skill as always active, which would inject all
   36 skill bodies into every conversation.
@@ -69,7 +71,7 @@ directory are unchanged.
 
 1. Check out the upstream commit to vendor.
 2. Copy `skills/*` into `plugins/compound-engineering/skills/`.
-3. Apply the three changes listed above.
+3. Apply the changes listed above.
 4. Update the provenance table and the `version` in `.plugin/plugin.json`.
 5. Run `python scripts/sync_extensions.py` and the repository test suite.
 
