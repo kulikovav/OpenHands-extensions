@@ -19,6 +19,7 @@ contract.
 """
 
 import json
+import math
 import re
 import subprocess
 from copy import deepcopy
@@ -289,7 +290,9 @@ def _derive_trigger(
     return trigger
 
 
-def _coerce_number_fields(entry: dict, form_values: dict) -> dict:
+def _coerce_number_fields(
+    entry: dict, form_values: dict, selected_trigger: str | None = None
+) -> dict:
     """Declared number fields as numbers, whatever the form held.
 
     The form stores an edited number input as a string, because that is what the
@@ -299,20 +302,33 @@ def _coerce_number_fields(entry: dict, form_values: dict) -> dict:
     import. A blank or non-numeric answer is written through, so validation
     decides what an invalid number means.
     """
-    fields = _fields(entry["setup"])
+    setup = entry["setup"]
+    fields = dict(
+        setup["form"]["triggers"][_selected_trigger_kind(entry, selected_trigger)]
+    )
+    fields.update(setup["form"]["args"])
     coerced = {}
     for name, value in form_values.items():
         field = fields.get(name) or {}
-        if field.get("type") == "number" and isinstance(value, str) and value.strip():
-            try:
-                numeric = float(value)
-            except ValueError:
-                coerced[name] = value
-            else:
-                coerced[name] = int(numeric) if numeric.is_integer() else numeric
-        else:
-            coerced[name] = value
+        coerced[name] = _as_number(value) if field.get("type") == "number" else value
     return coerced
+
+
+def _as_number(value):
+    """A numeric string as its number, mirroring the host's `Number` + `isFinite`.
+
+    Python's `float` is looser than `Number`: it accepts separators and
+    non-finite spellings, which the host writes through as the string.
+    """
+    if not isinstance(value, str) or not value.strip() or "_" in value:
+        return value
+    try:
+        numeric = float(value)
+    except ValueError:
+        return value
+    if not math.isfinite(numeric):
+        return value
+    return int(numeric) if numeric.is_integer() else numeric
 
 
 def _render_bundle_payload(
@@ -338,7 +354,7 @@ def _render_bundle_payload(
         "version": bundle["version"],
         "config": _interpolate(
             bundle["config"],
-            _context(entry, _coerce_number_fields(entry, form_values)),
+            _context(entry, _coerce_number_fields(entry, form_values, selected_trigger)),
         ),
     }
     return body
@@ -956,6 +972,28 @@ def test_a_number_field_renders_as_a_number_from_a_string_form_value() -> None:
 
     assert derived["template"]["config"]["max_new_per_run"] == 2
     assert derived == scenario["create"]["request"]["body"]
+
+
+def test_a_fractional_number_field_keeps_its_fraction() -> None:
+    """The host preserves a fractional answer, because the field is a number.
+
+    The script's own integer contract is the gate that rejects it, not the form.
+    """
+    bundle = _load(FIXTURE_DIR / "github-pr-reviewer.json")
+    entry = _entry_for(bundle)
+    scenario = next(
+        item for item in bundle["scenarios"] if item["id"] == "happy-path"
+    )
+
+    derived = _render_payload(
+        entry,
+        {**scenario["formValues"], "maxNewPerRun": "2.5"},
+        _uploaded_path(scenario),
+        scenario.get("selectedTrigger"),
+        scenario.get("selectedAction"),
+    )
+
+    assert derived["template"]["config"]["max_new_per_run"] == 2.5
 
 
 @pytest.mark.parametrize(("bundle", "scenario"), list(_scenarios("preflight")))
