@@ -2140,6 +2140,47 @@ def test_reviewer_scheduled_scan_skips_a_pr_with_a_current_head_review(
     run.dispatcher.deliver.assert_not_called()
 
 
+def test_reviewer_label_only_scan_skips_an_unrequested_green_pr(
+    tmp_path, monkeypatch
+):
+    """`require_label` keeps the scheduled scan off the unlabeled backlog."""
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    run.config["require_label"] = True
+    pr = {"number": 3, "head": {"sha": "head-3"}, "labels": [], "draft": False}
+    run.gh_pages = lambda path: [] if path.endswith("/reviews") else [pr]
+    run.gh = Mock(side_effect=[{"id": 99}, pr])
+    run.check_runs = lambda sha: _checks(("ci", "completed", "success"), sha=sha)
+    run.dispatcher.deliver.return_value = {
+        "disposition": "created",
+        "conversation_id": "conversation",
+    }
+
+    run.run()
+
+    run.dispatcher.deliver.assert_not_called()
+
+
+def test_reviewer_label_only_scan_still_reviews_an_outstanding_request(
+    tmp_path, monkeypatch
+):
+    """`require_label` leaves the reviewer-request path open."""
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    run.config["require_label"] = True
+    pr = _requested_pr()
+    run.gh_pages = _request_pages(pr, _review_request_event(), [])
+    run.gh = Mock(side_effect=[{"id": 99}, pr])
+    run.check_runs = lambda sha: _checks(("ci", "completed", "success"), sha=sha)
+    run.dispatcher.deliver.return_value = {
+        "disposition": "created",
+        "conversation_id": "conversation",
+    }
+
+    run.run()
+
+    run.dispatcher.deliver.assert_called_once()
+    assert run.dispatcher.deliver.call_args.kwargs["delivery"] == "42:head-2"
+
+
 def test_reviewer_scheduled_scan_keeps_the_label_path_unchanged(
     tmp_path, monkeypatch
 ):

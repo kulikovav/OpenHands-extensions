@@ -70,7 +70,9 @@ symbolic base branch carries no branch rules of its own:
   requests are exhausted. The delivery key is the stable
   `scan:{repository}:{number}:{head}`, so repeated scans reuse one conversation
   and one native review, and a changed head becomes eligible again under its new
-  SHA.
+  SHA. A deployment whose intake policy is the trigger label sets
+  `require_label` in its rendered config to keep this backlog scan off; reviewer
+  requests still start a review.
 - Each scheduled scan classifies the **whole open backlog**, including
   unrequested PRs. Blocked, pending, draft, or already-reviewed heads therefore
   cannot hide an eligible head behind an inspection window. The separate
@@ -220,9 +222,9 @@ automatically.
 
 Verify that the following secret is set in **OpenHands Settings -> Secrets**:
 
-| Secret name | Token type | Minimum permissions |
-|---|---|---|
-| `GITHUB_PERSONAL_ACCESS_TOKEN` | Classic PAT | `repo` for private repos or `public_repo` for public repos |
+| Secret name                    | Token type       | Minimum permissions                                                                       |
+| ------------------------------ | ---------------- | ----------------------------------------------------------------------------------------- |
+| `GITHUB_PERSONAL_ACCESS_TOKEN` | Classic PAT      | `repo` for private repos or `public_repo` for public repos                                |
 | `GITHUB_PERSONAL_ACCESS_TOKEN` | Fine-grained PAT | Contents: Read, Metadata: Read, Pull requests: **Read and Write**, Issues: Read and Write |
 
 Pull-request **write** access is required because the agent publishes a pull
@@ -307,12 +309,12 @@ Ask: *"What review tone should the reviewer use?
 
 Map the choice to `REVIEW_TONE`:
 
-| Answer | `REVIEW_TONE` | `REVIEW_STYLE_INSTRUCTIONS` |
-|---|---|---|
-| 1 / Enter | `"thorough"` | `""` |
-| 2 | `"concise"` | `""` |
-| 3 | `"friendly"` | `""` |
-| Custom text, e.g. `strict but kind` | `"thorough"` | the custom text verbatim |
+| Answer                              | `REVIEW_TONE` | `REVIEW_STYLE_INSTRUCTIONS` |
+| ----------------------------------- | ------------- | --------------------------- |
+| 1 / Enter                           | `"thorough"`  | `""`                        |
+| 2                                   | `"concise"`   | `""`                        |
+| 3                                   | `"friendly"`  | `""`                        |
+| Custom text, e.g. `strict but kind` | `"thorough"`  | the custom text verbatim    |
 
 ### Step 5 - Collect cron schedule
 
@@ -335,15 +337,15 @@ substitutions near the top of the file:
 > since a declarative host cannot rewrite Python. This setup path substitutes the
 > constants and ships no `config.json`, so the two never collide.
 
-| Placeholder | Replace with |
-|---|---|
-| `REPOS = ["owner/repo"]` | `REPOS = ["{owner_repo}", ...]` - one entry per repository collected in Step 2 |
-| `TRIGGER_LABEL = "openhands-review"` | `TRIGGER_LABEL = "{trigger_label}"` |
-| `REVIEW_TONE = "thorough"` | `REVIEW_TONE = "{review_tone}"` |
-| `REVIEW_STYLE_INSTRUCTIONS = ""` | `REVIEW_STYLE_INSTRUCTIONS = "{style_instructions}"` |
-| `REPO_REVIEW_GUIDE_PATH = ".agents/skills/custom-codereview-guide.md"` | leave unchanged to auto-load a repo review guide at this path, or set to `""` to disable |
-| `MAX_NEW_PER_RUN = 2` | leave unchanged to bound a scheduled scan to two new review conversations across all repositories, or raise it if the deployment can hold more agents at once |
-| `DEFAULT_OPENHANDS_URL = "http://localhost:8000"` | leave unchanged unless the user has a preference |
+| Placeholder                                                            | Replace with                                                                                                                                                  |
+| ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `REPOS = ["owner/repo"]`                                               | `REPOS = ["{owner_repo}", ...]` - one entry per repository collected in Step 2                                                                                |
+| `TRIGGER_LABEL = "openhands-review"`                                   | `TRIGGER_LABEL = "{trigger_label}"`                                                                                                                           |
+| `REVIEW_TONE = "thorough"`                                             | `REVIEW_TONE = "{review_tone}"`                                                                                                                               |
+| `REVIEW_STYLE_INSTRUCTIONS = ""`                                       | `REVIEW_STYLE_INSTRUCTIONS = "{style_instructions}"`                                                                                                          |
+| `REPO_REVIEW_GUIDE_PATH = ".agents/skills/custom-codereview-guide.md"` | leave unchanged to auto-load a repo review guide at this path, or set to `""` to disable                                                                      |
+| `MAX_NEW_PER_RUN = 2`                                                  | leave unchanged to bound a scheduled scan to two new review conversations across all repositories, or raise it if the deployment can hold more agents at once |
+| `DEFAULT_OPENHANDS_URL = "http://localhost:8000"`                      | leave unchanged unless the user has a preference                                                                                                              |
 
 Use a safe string writer such as `json.dumps(value)` when inserting user-provided
 repository names, labels, or style instructions into Python string literals.
@@ -492,19 +494,19 @@ The completion callback fires once for the whole run.
 
 ## Troubleshooting
 
-| Symptom | Likely cause | Fix |
-|---|---|---|
-| Bot never queues reviews | Trigger label not present or no matching `labeled` event | Apply the configured label to the PR |
-| "Bad credentials" in run logs | Token expired | Rotate and update `GITHUB_PERSONAL_ACCESS_TOKEN` |
-| 404 on repo access | Repo name wrong or no access | Re-check the entry in `REPOS` and the token's permissions |
-| One repository is skipped, others work | That repository failed its access check | Read the `=== owner/repo ===` block in the run log |
-| Same PR not reviewed after new commits | Label event was already processed | Remove and re-apply the trigger label |
-| Review paused with a failing-check comment | A current-head required check reported `failure`, `cancelled`, or `timed_out` | Fix the named checks and push; the review starts on the new head, or request `all-hands-bot` to review immediately |
-| Review reported waiting on checks | A current-head required check is `queued` or `in_progress`, or has not reported yet | No action; a later scan or a new review request retries |
-| Optional workflow failed but no review was paused | The failed workflow is not required, so the required-only scheduled gate ignored it | No action; only GitHub-required checks gate scheduled discovery |
-| Only a few reviews start on a large backlog | The per-scan `max_new_per_run` bound (default 2) reached | No action; later scans drain the remaining oldest eligible PRs, or raise `max_new_per_run` if the deployment can hold more agents |
-| Review result never posts | Conversation still running or stuck | Open the conversation link from the acknowledgement comment |
-| Stale review suppressed | PR head SHA changed while the agent was reviewing | Re-apply the trigger label after the latest commit |
-| Review arrives as a plain comment, not a review | Publishing failed, so the script posted the text as a fallback | Check that the token has Pull requests: Read and Write |
-| Agent reports it cannot clone the repo | Prompt asked it not to; the workspace is already the checkout | No action - the code is at the head SHA in its working directory |
-| Checkouts remain under `repositories/` | Their conversations had not stopped yet | They are removed by a later poll once the conversation is terminal |
+| Symptom                                           | Likely cause                                                                        | Fix                                                                                                                               |
+| ------------------------------------------------- | ----------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Bot never queues reviews                          | Trigger label not present or no matching `labeled` event                            | Apply the configured label to the PR                                                                                              |
+| "Bad credentials" in run logs                     | Token expired                                                                       | Rotate and update `GITHUB_PERSONAL_ACCESS_TOKEN`                                                                                  |
+| 404 on repo access                                | Repo name wrong or no access                                                        | Re-check the entry in `REPOS` and the token's permissions                                                                         |
+| One repository is skipped, others work            | That repository failed its access check                                             | Read the `=== owner/repo ===` block in the run log                                                                                |
+| Same PR not reviewed after new commits            | Label event was already processed                                                   | Remove and re-apply the trigger label                                                                                             |
+| Review paused with a failing-check comment        | A current-head required check reported `failure`, `cancelled`, or `timed_out`       | Fix the named checks and push; the review starts on the new head, or request `all-hands-bot` to review immediately                |
+| Review reported waiting on checks                 | A current-head required check is `queued` or `in_progress`, or has not reported yet | No action; a later scan or a new review request retries                                                                           |
+| Optional workflow failed but no review was paused | The failed workflow is not required, so the required-only scheduled gate ignored it | No action; only GitHub-required checks gate scheduled discovery                                                                   |
+| Only a few reviews start on a large backlog       | The per-scan `max_new_per_run` bound (default 2) reached                            | No action; later scans drain the remaining oldest eligible PRs, or raise `max_new_per_run` if the deployment can hold more agents |
+| Review result never posts                         | Conversation still running or stuck                                                 | Open the conversation link from the acknowledgement comment                                                                       |
+| Stale review suppressed                           | PR head SHA changed while the agent was reviewing                                   | Re-apply the trigger label after the latest commit                                                                                |
+| Review arrives as a plain comment, not a review   | Publishing failed, so the script posted the text as a fallback                      | Check that the token has Pull requests: Read and Write                                                                            |
+| Agent reports it cannot clone the repo            | Prompt asked it not to; the workspace is already the checkout                       | No action - the code is at the head SHA in its working directory                                                                  |
+| Checkouts remain under `repositories/`            | Their conversations had not stopped yet                                             | They are removed by a later poll once the conversation is terminal                                                                |

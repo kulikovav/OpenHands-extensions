@@ -72,6 +72,7 @@ CONFIG_FILENAME = "config.json"
 _CONFIG_TYPES: dict[str, type] = {
     "repos": list,
     "trigger_label": str,
+    "require_label": bool,
     "review_tone": str,
     "review_style_instructions": str,
     "repo_review_guide_path": str,

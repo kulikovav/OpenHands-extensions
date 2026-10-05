@@ -146,6 +146,17 @@ class PullRequestReviewer(GitHubRepository):
     def trigger_reviewer(self):
         return self.config.get("trigger_reviewer", "all-hands-bot").lower()
 
+    @cached_property
+    def require_label(self):
+        """Whether the scheduled scan reviews only pull requests with the label.
+
+        The reviewer-request paths stay open: an outstanding request or a
+        reviewer-request event still starts a review. Only the unrequested
+        backlog scan is off, so a deployment whose intake policy is the trigger
+        label does not review every open pull request.
+        """
+        return bool(self.config.get("require_label", False))
+
     @staticmethod
     def _event_payload():
         """Return the GitHub webhook payload, or None for a scheduled run."""
@@ -947,6 +958,11 @@ class PullRequestReviewer(GitHubRepository):
                         continue
                     if self._has_current_head_review(pr["number"], pr["head"]["sha"]):
                         self._finish_completed_review(pr, None)
+                        continue
+                    if self.require_label:
+                        # The label is this deployment's intake policy, so the
+                        # scan leaves the unrequested backlog alone. A request
+                        # still starts its review through the branch above.
                         continue
                     trigger = None
                     delivery_key = self._unrequested_head(pr)
