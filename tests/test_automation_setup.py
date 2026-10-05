@@ -289,6 +289,32 @@ def _derive_trigger(
     return trigger
 
 
+def _coerce_number_fields(entry: dict, form_values: dict) -> dict:
+    """Declared number fields as numbers, whatever the form held.
+
+    The form stores an edited number input as a string, because that is what the
+    DOM hands back, and the payload mapping is where a value stops being what
+    was typed. Without this, a bare `{{form.<name>}}` writes the string into
+    config.json, and a script that declares the key as an integer rejects it at
+    import. A blank or non-numeric answer is written through, so validation
+    decides what an invalid number means.
+    """
+    fields = _fields(entry["setup"])
+    coerced = {}
+    for name, value in form_values.items():
+        field = fields.get(name) or {}
+        if field.get("type") == "number" and isinstance(value, str) and value.strip():
+            try:
+                numeric = float(value)
+            except ValueError:
+                coerced[name] = value
+            else:
+                coerced[name] = int(numeric) if numeric.is_integer() else numeric
+        else:
+            coerced[name] = value
+    return coerced
+
+
 def _render_bundle_payload(
     entry: dict,
     form_values: dict,
@@ -310,7 +336,10 @@ def _render_bundle_payload(
     body["template"] = {
         "id": entry["id"],
         "version": bundle["version"],
-        "config": _interpolate(bundle["config"], _context(entry, form_values)),
+        "config": _interpolate(
+            bundle["config"],
+            _context(entry, _coerce_number_fields(entry, form_values)),
+        ),
     }
     return body
 
@@ -902,6 +931,31 @@ def test_derived_body_reproduces_the_create_request(
     assert scenario["create"]["request"]["path"] == _create_path(
         entry, scenario.get("selectedAction")
     )
+
+
+def test_a_number_field_renders_as_a_number_from_a_string_form_value() -> None:
+    """An edited number input reaches the mapping as a string.
+
+    The form stores what the DOM hands back, so the rendered config must carry
+    the number the manifest declares; otherwise a script that declares the key
+    as an integer rejects its own config at import.
+    """
+    bundle = _load(FIXTURE_DIR / "github-pr-reviewer.json")
+    entry = _entry_for(bundle)
+    scenario = next(
+        item for item in bundle["scenarios"] if item["id"] == "happy-path"
+    )
+
+    derived = _render_payload(
+        entry,
+        {**scenario["formValues"], "maxNewPerRun": "2"},
+        _uploaded_path(scenario),
+        scenario.get("selectedTrigger"),
+        scenario.get("selectedAction"),
+    )
+
+    assert derived["template"]["config"]["max_new_per_run"] == 2
+    assert derived == scenario["create"]["request"]["body"]
 
 
 @pytest.mark.parametrize(("bundle", "scenario"), list(_scenarios("preflight")))
