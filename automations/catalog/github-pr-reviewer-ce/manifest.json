@@ -1,0 +1,184 @@
+{
+  "id": "github-pr-reviewer-ce",
+  "version": "1.0.0",
+  "name": "Compound-engineering PR review",
+  "category": "Code review",
+  "description": "Review requested and unreviewed pull-request heads with the compound-engineering code-review methodology: risk-selected reviewer personas, P0-P3 severity with anchored confidence, a quote-the-line evidence gate, a validation pass over protected subjects, and separated pre-existing issues, all published as one native GitHub review.",
+  "requires": {
+    "integrations": {},
+    "features": [
+      "customTarball",
+      "agentProfiles"
+    ]
+  },
+  "popularityRank": 62,
+  "estimatedSetupMinutes": 4,
+  "skill": "github-pr-reviewer",
+  "exampleImplementation": "A scheduled scan of the trigger label, of open pull requests holding an outstanding reviewer request, and of every open non-draft pull request nobody requested whose current head is green and unreviewed, plus a GitHub reviewer-request event, selects a pull request head and submits an idempotent subject turn. The profile-backed agent clones that exact head, applies the repository-ownership and product/architecture scope gate, then runs the compound-engineering code-review methodology over the diff: it selects reviewer personas by the change's risks, reviews each from its own lens, grades every finding P0 to P3 with an anchored confidence score, requires a verbatim quoted line as evidence before a finding may claim high confidence, re-verifies protected-subject claims such as memory safety, concurrency, data loss, authorization, injection, and secrets exposure before keeping them, and separates pre-existing issues from ones this diff introduces. It runs the repository's appropriate focused tests, then publishes one native GitHub review whose body carries the severity-grouped findings, coverage, testing gaps, and residual risks, and whose inline comments sit on changed lines. An approval, or a maintainer-decision scope stop, can then be handed to a code-aware human maintainer.",
+  "impact": {
+    "basis": "completed-runs",
+    "one": "1 compound-engineering review sweep completed",
+    "other": "{{count}} compound-engineering review sweeps completed"
+  },
+  "setup": {
+    "version": "1.0",
+    "mode": "direct",
+    "form": {
+      "triggers": {
+        "cron": {
+          "schedule": {
+            "type": "cron",
+            "label": "Check frequency",
+            "help": "How often to look for newly labelled pull requests, outstanding reviewer requests whose checks have not yet finished, and open non-draft pull requests nobody requested that still need a review.",
+            "default": "*/15 * * * *",
+            "required": true
+          },
+          "timezone": {
+            "type": "timezone",
+            "label": "Timezone",
+            "help": "Timezone the schedule is interpreted in.",
+            "default": "UTC",
+            "required": true
+          }
+        },
+        "event": {
+          "on": {
+            "type": "select",
+            "label": "GitHub events",
+            "help": "Handle requests for the configured reviewer and its resulting native reviews.",
+            "default": "*",
+            "required": true,
+            "options": [
+              {
+                "value": "*",
+                "label": "Reviewer request and completion"
+              }
+            ]
+          }
+        }
+      },
+      "args": {
+        "repositories": {
+          "type": "repo-picker",
+          "label": "Repositories",
+          "help": "The repositories whose pull requests will be reviewed. Each is polled independently and keeps its own state, so pull request numbers never collide between them.",
+          "provider": "github",
+          "multiple": true,
+          "required": true
+        },
+        "triggerLabel": {
+          "type": "text",
+          "label": "Trigger label",
+          "help": "Pull requests carrying this label are reviewed. An open, non-draft pull request that nobody requested is also reviewed once its current head is green and carries no review yet, with the whole backlog classified each scan and only newly launched reviews counting against the quota.",
+          "default": "ce-review",
+          "required": true,
+          "constraints": {
+            "minLength": 1,
+            "maxLength": 50
+          }
+        },
+        "triggerReviewer": {
+          "type": "text",
+          "label": "Requested reviewer",
+          "help": "GitHub login whose review request starts an event-driven review.",
+          "default": "all-hands-bot",
+          "required": true,
+          "constraints": {
+            "minLength": 1,
+            "maxLength": 39
+          }
+        },
+        "maxNewPerRun": {
+          "type": "number",
+          "label": "New reviews per scan",
+          "help": "Most new review conversations one scheduled scan may start, counted across every repository. Each one runs the full persona review, so keep this small and raise it only when the deployment can hold more agents at once. Reviews that are already running are resumed without counting against it.",
+          "default": 1,
+          "required": true,
+          "constraints": {
+            "min": 1
+          }
+        },
+        "personaFocus": {
+          "type": "select",
+          "label": "Mandatory reviewers",
+          "help": "Reviewer lenses that always run, on top of the ones you select from the change's own risks.",
+          "default": "correctness,testing",
+          "required": true,
+          "options": [
+            {
+              "value": "correctness,testing",
+              "label": "Correctness and testing"
+            },
+            {
+              "value": "correctness,security",
+              "label": "Correctness and security"
+            },
+            {
+              "value": "correctness,security,testing,maintainability",
+              "label": "Correctness, security, testing, maintainability"
+            }
+          ]
+        },
+        "reviewTone": {
+          "type": "select",
+          "label": "Review tone",
+          "help": "How the review body reads. It never changes the severity or confidence grading.",
+          "default": "concise",
+          "required": true,
+          "options": [
+            {
+              "value": "concise",
+              "label": "Concise"
+            },
+            {
+              "value": "thorough",
+              "label": "Thorough"
+            },
+            {
+              "value": "friendly",
+              "label": "Friendly"
+            }
+          ]
+        },
+        "maintainers": {
+          "type": "text",
+          "label": "Maintainers",
+          "help": "Optional comma-separated GitHub collaborator logins. Include at least two so a maintainer-authored PR still has an eligible reviewer. After an exact-head approval, or a maintainer-decision scope stop, request one based on changed-path history and current review load.",
+          "default": "",
+          "required": false
+        },
+        "githubTokenSecret": {
+          "type": "text",
+          "label": "GitHub token secret",
+          "help": "Name of a saved Agent Server secret. Include it in the selected profile so the delegated agent can use GitHub.",
+          "default": "GITHUB_PERSONAL_ACCESS_TOKEN",
+          "required": true
+        }
+      }
+    },
+    "bundle": {
+      "version": "1.0.0",
+      "entrypoint": "python3 worker.py",
+      "timeout": 300,
+      "files": {
+        "main.py": "skills/github-pr-reviewer/scripts/main.py",
+        "agent_conversation.py": "skills/github/scripts/agent_conversation.py",
+        "github_client.py": "skills/github/scripts/github_client.py",
+        "maintainer_handoff.py": "skills/github-pr-reviewer/scripts/maintainer_handoff.py",
+        "worker.py": "skills/github-pr-reviewer/scripts/worker.py"
+      },
+      "config": {
+        "repos": "{{form.repositories}}",
+        "trigger_label": "{{form.triggerLabel}}",
+        "trigger_reviewer": "{{form.triggerReviewer}}",
+        "max_new_per_run": "{{form.maxNewPerRun}}",
+        "review_tone": "{{form.reviewTone}}",
+        "maintainers": "{{form.maintainers}}",
+        "github_token_secret": "{{form.githubTokenSecret}}",
+        "review_style_instructions": "Review method: the compound-engineering code review. Apply it inside the required workflow above. It governs how you find, grade, and present findings; where it refines a base rule, it only narrows what counts as a material finding, and it never relaxes the publication contract. The native GitHub review stays the only result channel: one review on the exact head, `event: APPROVE` when no material finding survives, otherwise `event: COMMENT`, never `REQUEST_CHANGES`, the AI disclosure first, and the verdict line as the last characters of the body.\n\n1. SCOPE AND INTENT. After the repository guidance in the required workflow, state the review scope (merge base with the base branch through the working tree, with file and line counts) and the change's intent in one sentence each, derived from the pull request description and the diff. Then select the reviewer lenses the change's risks call for, and name them. Always run these lenses, whatever else you pick: {{form.personaFocus}}. Add from the others only when the diff justifies it - security for auth, secrets, parsing, or untrusted input; performance for hot paths, queries, or large data; api-contract for a changed public, wire, or schema surface; data-migration for schema or persisted-format changes; reliability for retries, timeouts, or partial failure; maintainability for duplication or dead weight; swift-ios or julik-frontend-races for those platforms. Dispatch each selected lens as its own subagent when the runtime supports subagents, and give it the findings contract below verbatim; otherwise run the lenses sequentially yourself, keeping each lens's findings separate. Merge findings that two lenses independently report into one finding that lists both lenses.\n\n2. FINDINGS CONTRACT. Every finding carries: a title of ten words or fewer; severity `P0` (critical: auth bypass, data loss, crash, wrong money), `P1` (high: real bug or contract break in normal use), `P2` (moderate: narrow edge case or missing test), or `P3` (low: readability or consistency); `file:line`; what breaks and for whom, not what is wrong; the lens that raised it; a confidence score; and code-grounded evidence. Confidence is exactly one anchor, applied honestly: `0` is a false positive or a pre-existing issue this pull request did not introduce, so drop it; `50` is verified real but minor, a nitpick, or a style preference; `75` is verified to affect users, callers, or runtime behavior in normal use; `100` is certain from the code itself, such as a compile error, a type mismatch, a definitive logic bug, or a quotable project-standards violation. Below `50`, do not report the finding at all. Keep a separate list of pre-existing issues you noticed in unchanged code; they are informational, never blocking, and they never decide the verdict.\n\n3. QUOTE-THE-LINE GATE. Evidence for any finding at `75` or `100` must open with the verbatim motivating line or lines, quoted as `file:line` plus the exact code text, so a reader can confirm the claim without opening the file. A finding whose triggering line you cannot quote steps down to `50`. When a claim depends on line history - a pre-existing issue, an intentional design, whether this diff introduced it, or a `P0`/`P1` resting on authorship or age - add one short provenance line from targeted `git blame` or `git log` (short hash, author, date, subject). Never dump a full-file blame. If the workspace has no git history, say so in the finding rather than omitting it or guessing.\n\n4. VALIDATION PASS. A finding about memory safety, concurrency, data loss, authorization or authentication, injection, a public contract, secrets exposure, or cryptography is a protected claim. After collecting findings, re-open the cited code and check each protected claim against it, and mark it `confirmed` only with a cited reason, or `rejected` with the evidence that refutes it. A protected claim you cannot either confirm or refute stays `unresolved`, which is a verification gate rather than a proven defect: report it as open and needing a human decision, and do not approve on the strength of it. Classify the actual claim, not a scary word in the title.\n\n5. TESTS. Run the repository's appropriate focused tests in the workspace, and report the command and its real result. Never report a test as passing that you did not run, and never modify tracked files to make a test pass. List worthwhile missing coverage for a concrete scenario as testing gaps, kept separate from findings.\n\n6. BODY LAYOUT. Open the review body with the required AI disclosure, then a one-line scope and intent, then the lenses you ran with a one-clause reason for each added lens, then the findings grouped under `### P0 - Critical`, `### P1 - High`, `### P2 - Moderate`, `### P3 - Low`, omitting empty levels. Number findings once and continue the numbering across levels. Each finding gets a terse scannable line - `#N | file:line | one-line issue | lens | confidence` - plus a detail line only where the one-liner is not self-sufficient, usually `P0` and `P1`. Then `### Pre-existing Issues` when that list is non-empty, then `### Testing Gaps`, then `### Residual Risks` (unresolved claims and risks you chose not to block on), then `### Coverage`, which states how many findings you suppressed below the confidence anchor and why, and names any lens that failed. Keep the layout ASCII-safe: no box-drawing rules, no Unicode arrows, and if you use a table, escape any literal pipe inside a cell.\n\n7. INLINE COMMENTS. Map a finding to an inline comment only when the cited path and line are part of this pull request's diff, and only for `P0`, `P1`, and `P2` findings. The comment body is the finding's title, what breaks, and the concrete fix. Leave `P3` findings, and any finding you cannot place on a changed line, in the body instead. If GitHub rejects the inline positions, retry once with every finding in the body and no `comments` array.\n\n8. VERDICT. Use `event: APPROVE` and the `✅ APPROVED` verdict line only when no `P0` or `P1` finding survived and no protected claim is `unresolved`; `P2`, `P3`, and pre-existing findings may be reported alongside an approval. Otherwise use `event: COMMENT` and the `🔄 CHANGES REQUESTED` line. Never request changes for style alone. This is the definition of a material finding the base contract leaves to you: material means a surviving `P0` or `P1`, or an `unresolved` protected claim. State the highest surviving severity and the single first thing to fix in the sentence immediately above the verdict, and make the last line of the body exactly `✅ APPROVED` or `🔄 CHANGES REQUESTED` on its own, with nothing after it - the completion check reads the body's final characters, so trailing text on or after that line loses the review and its handoff. If the scope gate already ended the review, keep its review and its `🛑 MAINTAINER DECISION REQUIRED` verdict untouched."
+      }
+    },
+    "filter": "contains({{form.repositories}}, repository.full_name) && contains(keys(@), 'pull_request') && ((action == 'review_requested' && requested_reviewer.login == '{{form.triggerReviewer}}') || (action == 'submitted' && contains(keys(@), 'review') && review.user.login == '{{form.triggerReviewer}}'))",
+    "message": "Configure the repositories, trigger label, mandatory reviewer lenses, credential name, per-scan new-review bound, and agent profile. Each scheduled scan reviews the oldest eligible pull-request heads, so the backlog drains over several runs."
+  }
+}
