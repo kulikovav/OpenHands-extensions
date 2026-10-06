@@ -100,6 +100,46 @@ def test_new_subject_uses_selected_profile_and_persists_mapping(monkeypatch):
     }
 
 
+def test_each_conversation_gets_its_own_working_directory(monkeypatch):
+    """Two conversations must not share one Agent Server working directory.
+
+    The Agent Server initializes each conversation's working directory as a Git
+    repository the delegated agent fetches into, so a shared path would put two
+    concurrent reviews of one repository into the same checkout.
+    """
+    state = {}
+    _fake_kv(monkeypatch, state)
+    monkeypatch.setenv("WORKSPACE_BASE", "/runs/run-1")
+    monkeypatch.setattr(agent_conversation, "_register_tools", lambda: None)
+    workspace = MagicMock()
+    workspace.__enter__.return_value = workspace
+    workspace.get_secrets.return_value = {}
+    monkeypatch.setattr(
+        agent_conversation, "RemoteWorkspace", lambda **kwargs: workspace
+    )
+    missing = agent_conversation.httpx.HTTPStatusError(
+        "missing",
+        request=MagicMock(),
+        response=MagicMock(status_code=404),
+    )
+    monkeypatch.setattr(
+        agent_conversation.RemoteConversation, "attach", MagicMock(side_effect=missing)
+    )
+    create = MagicMock(return_value=MagicMock())
+    monkeypatch.setattr(agent_conversation.RemoteConversation, "create", create)
+
+    with _dispatcher(monkeypatch) as dispatcher:
+        first = dispatcher.deliver("repo:pr:1", "head-1", "one")
+        second = dispatcher.deliver("repo:pr:2", "head-2", "two")
+
+    working_dirs = [call.args[1].workspace.working_dir for call in create.call_args_list]
+    assert working_dirs == [
+        f"/runs/run-1/conversations/{first['conversation_id']}",
+        f"/runs/run-1/conversations/{second['conversation_id']}",
+    ]
+    assert working_dirs[0] != working_dirs[1]
+
+
 def test_known_subject_resumes_once_per_delivery(monkeypatch):
     state = {
         _state_key("repo:pr:9"): {

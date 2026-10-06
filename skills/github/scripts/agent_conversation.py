@@ -152,6 +152,21 @@ def _user_message(text: str) -> dict:
     return {"role": "user", "content": [{"type": "text", "text": text}]}
 
 
+def _conversation_working_dir(conversation_id: UUID) -> str:
+    """Return the conversation's own working directory on the Agent Server.
+
+    The Agent Server runs every conversation it hosts on one filesystem and
+    initializes each conversation's working directory as a Git repository the
+    delegated agent fetches into. A shared directory would put two concurrent
+    conversations for one repository into the same checkout. The run's
+    WORKSPACE_BASE isolates one automation run from the next; this adds the
+    per-conversation level, keyed on the stable conversation id so one
+    subject's turns stay in one directory.
+    """
+    base = os.environ.get("WORKSPACE_BASE", "/workspace")
+    return os.path.join(base, "conversations", str(conversation_id))
+
+
 class AgentConversationDispatcher:
     """Deliver one revision at a time to a stable conversation for each subject."""
 
@@ -326,7 +341,9 @@ class AgentConversationDispatcher:
             conversation = RemoteConversation.create(
                 self._workspace,
                 StartConversationRequest(
-                    workspace=LocalWorkspace(working_dir="/workspace"),
+                    workspace=LocalWorkspace(
+                        working_dir=_conversation_working_dir(conversation_id)
+                    ),
                     conversation_id=conversation_id,
                     agent_profile_id=self.profile_id,
                     secrets=self._secrets,
