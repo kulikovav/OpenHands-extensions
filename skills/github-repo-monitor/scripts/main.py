@@ -490,13 +490,24 @@ def _build_secrets_payload(agent_url: str, api_key: str) -> dict:
     return secrets
 
 
-def create_conversation(agent_url: str, api_key: str, initial_message: str) -> str:
+def create_conversation(
+    agent_url: str, api_key: str, initial_message: str, conversation_key: str
+) -> str:
     """Create an OpenHands conversation and return its ID.
 
     Inherits the user's secrets (as LookupSecret references) and MCP
     server configuration so the spawned agent has the same capabilities.
+
+    Each subject gets a working directory of its own: the Agent Server runs
+    every conversation it hosts on one filesystem and initializes the working
+    directory as a Git repository the agent works in, so a shared path would
+    put concurrent conversations for one repository into the same checkout.
     """
-    workspace_dir = os.environ.get("WORKSPACE_BASE", "/workspace")
+    workspace_dir = os.path.join(
+        os.environ.get("WORKSPACE_BASE", "/workspace"),
+        "conversations",
+        conversation_key,
+    )
     agent = _get_agent_dict(agent_url, api_key)
     payload: dict = {
         "workspace": {"working_dir": workspace_dir},
@@ -675,7 +686,7 @@ def _ensure_conversation(
         except Exception as exc:
             print(f"  Closed conversation {conv_id} unreachable ({exc}) — creating new")
 
-    conv_id = create_conversation(agent_url, api_key, prompt)
+    conv_id = create_conversation(agent_url, api_key, prompt, conv_key)
     conversations[conv_key] = {
         "conversation_id": conv_id,
         "issue_number": issue_number,

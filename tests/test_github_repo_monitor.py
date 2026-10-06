@@ -105,3 +105,32 @@ def test_no_automation_model_uses_active_profile(monkeypatch):
 
     assert agent["llm"] == ACTIVE_LLM
     assert calls == []
+
+
+def test_each_subject_gets_its_own_conversation_working_directory(monkeypatch):
+    """Two subjects must not share one Agent Server working directory.
+
+    The Agent Server initializes each conversation's working directory as a Git
+    repository the agent works in, so a shared path would put concurrent
+    conversations for one repository into the same checkout.
+    """
+    helpers = load_repo_monitor_helpers()
+    monkeypatch.setenv("WORKSPACE_BASE", "/runs/run-1")
+    seen: dict = {}
+
+    def fake_urlopen(req, *args, **kwargs):
+        if req.get_method() == "POST":
+            seen["payload"] = json.loads(req.data)
+            return _FakeResponse({"id": "conv-1"})
+        return _FakeResponse({})
+
+    _patch_urlopen(monkeypatch, helpers, fake_urlopen)
+
+    created = helpers["create_conversation"](
+        "http://agent:8000", "key", "work", "42"
+    )
+
+    assert created == "conv-1"
+    assert seen["payload"]["workspace"]["working_dir"] == (
+        "/runs/run-1/conversations/42"
+    )
