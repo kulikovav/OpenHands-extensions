@@ -101,11 +101,22 @@
             "minLength": 1,
             "maxLength": 200
           }
+        },
+        "gitlabTokenSecret": {
+          "type": "text",
+          "label": "GitLab token secret",
+          "help": "Name of a saved Agent Server secret. Enter its name, not its value.",
+          "default": "GITLAB_TOKEN",
+          "required": true,
+          "constraints": {
+            "minLength": 1,
+            "maxLength": 100
+          }
         }
       }
     },
     "bundle": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "entrypoint": "python3 main.py",
       "timeout": 900,
       "files": {
@@ -116,9 +127,10 @@
         "trigger_label": "{{form.triggerLabel}}",
         "branch_prefix": "{{form.branchPrefix}}",
         "merge_request_mode": "{{form.mergeRequestMode}}",
-        "gitlab_api_url": "{{form.gitlabApiUrl}}"
+        "gitlab_api_url": "{{form.gitlabApiUrl}}",
+        "gitlab_token_secret": "{{form.gitlabTokenSecret}}"
       }
     },
-    "message": "This deployment cannot run the scheduled issue-to-MR automation directly. Set it up in this conversation instead: confirm the GitLab projects to watch, the trigger label, the branch prefix, whether merge requests open as drafts, the GitLab API URL, and the polling schedule, then create the automation."
+    "message": "This deployment cannot run the scheduled issue-to-MR automation directly. Set it up in this conversation instead: confirm the GitLab projects to watch, the trigger label, the branch prefix, whether merge requests open as drafts, the GitLab API URL, the name of the saved GitLab token secret, and the polling schedule, then create the automation."
   }
 }

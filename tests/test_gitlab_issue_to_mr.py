@@ -54,6 +54,7 @@ def test_config_json_overrides_the_constants(main, tmp_path):
                 "merge_request_mode": "ready",
                 "max_new_per_run": 5,
                 "gitlab_api_url": "https://gitlab.example.com/api/v4",
+                "gitlab_token_secret": "MY_GL_TOKEN",
                 "agent_secret_names": ["NPM_TOKEN"],
                 "openhands_url": "https://app.example.com",
                 "unknown_key": "ignored",
@@ -70,6 +71,7 @@ def test_config_json_overrides_the_constants(main, tmp_path):
         "merge_request_mode": "ready",
         "max_new_per_run": 5,
         "gitlab_api_url": "https://gitlab.example.com/api/v4",
+        "gitlab_token_secret": "MY_GL_TOKEN",
         "agent_secret_names": ["NPM_TOKEN"],
         "openhands_url": "https://app.example.com",
     }
@@ -90,6 +92,8 @@ def test_a_missing_config_leaves_the_constants_alone(main, tmp_path):
         {"max_new_per_run": 0},
         {"max_new_per_run": True},
         {"gitlab_api_url": "gitlab.example.com"},
+        {"gitlab_token_secret": "my_token"},
+        {"gitlab_token_secret": ""},
         {"agent_secret_names": [1]},
     ],
 )
@@ -322,6 +326,31 @@ def test_only_declared_secrets_are_forwarded(main, monkeypatch):
     assert payload["NPM_TOKEN"]["headers"] == {"X-Session-API-Key": "key"}
 
 
+def test_a_renamed_gitlab_token_is_forwarded_as_the_gitlab_token_env(main, monkeypatch):
+    """The catalog form may name a differently saved secret, but the prompt
+    spells out GITLAB_TOKEN, so that env name is what reads it."""
+    monkeypatch.setattr(main, "GITLAB_TOKEN_SECRET", "MY_GL_TOKEN")
+    monkeypatch.setattr(main, "AGENT_SECRET_NAMES", ["GITLAB_TOKEN"])
+    monkeypatch.setattr(
+        main, "_list_secret_names", lambda agent_url, api_key: [{"name": "MY_GL_TOKEN"}]
+    )
+
+    payload = main._build_secrets_payload("http://agent", "key")
+
+    assert list(payload) == ["GITLAB_TOKEN"]
+    assert payload["GITLAB_TOKEN"]["url"] == "/api/settings/secrets/MY_GL_TOKEN"
+
+
+def test_a_renamed_gitlab_token_that_is_not_set_is_not_forwarded(main, monkeypatch):
+    monkeypatch.setattr(main, "GITLAB_TOKEN_SECRET", "MY_GL_TOKEN")
+    monkeypatch.setattr(main, "AGENT_SECRET_NAMES", ["GITLAB_TOKEN"])
+    monkeypatch.setattr(
+        main, "_list_secret_names", lambda agent_url, api_key: [{"name": "GITLAB_TOKEN"}]
+    )
+
+    assert main._build_secrets_payload("http://agent", "key") == {}
+
+
 def test_the_conversation_payload_carries_no_secrets_block_when_there_are_none(
     main, monkeypatch, tmp_path
 ):
@@ -343,6 +372,50 @@ def test_the_conversation_payload_carries_no_secrets_block_when_there_are_none(
     assert "secrets" not in sent["body"]
     assert "mcp_config" not in sent["body"]
     assert sent["body"]["workspace"] == {"working_dir": str(tmp_path)}
+
+
+# ── The poller's GitLab token ─────────────────────────────────────────────────
+
+
+def test_the_poller_reads_the_configured_secret_name(main, monkeypatch):
+    monkeypatch.setattr(main, "GITLAB_TOKEN_SECRET", "MY_GL_TOKEN")
+    asked = []
+
+    def fake_get_secret(name):
+        asked.append(name)
+        return "glpat_secret"
+
+    monkeypatch.setattr(main, "get_secret", fake_get_secret)
+
+    assert main._resolve_gitlab_token() == "glpat_secret"
+    assert asked == ["MY_GL_TOKEN"]
+
+
+def test_a_cloud_run_falls_back_to_the_connected_gitlab_token(main, monkeypatch):
+    """With no token saved under the configured name, a cloud run is served the
+    token of the user's connected GitLab integration."""
+    monkeypatch.setattr(main, "IS_CLOUD", True)
+    monkeypatch.setattr(main, "GITLAB_TOKEN_SECRET", "MY_GL_TOKEN")
+    asked = []
+
+    def fake_get_secret(name):
+        asked.append(name)
+        return "glpat_secret" if name == "gitlab_token" else ""
+
+    monkeypatch.setattr(main, "get_secret", fake_get_secret)
+
+    assert main._resolve_gitlab_token() == "glpat_secret"
+    assert asked == ["MY_GL_TOKEN", "gitlab_token"]
+
+
+def test_a_missing_token_error_names_the_configured_secret(main, monkeypatch):
+    monkeypatch.setattr(main, "GITLAB_TOKEN_SECRET", "MY_GL_TOKEN")
+    monkeypatch.setattr(main, "get_secret", lambda name: "")
+
+    with pytest.raises(RuntimeError) as excinfo:
+        main._resolve_gitlab_token()
+
+    assert "MY_GL_TOKEN" in str(excinfo.value)
 
 
 # ── MCP servers handed to the conversation ────────────────────────────────────

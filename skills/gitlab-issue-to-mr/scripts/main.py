@@ -60,6 +60,11 @@ MAX_NEW_PER_RUN = 3
 # their own host, and some behind a path prefix, so the whole root is
 # configured rather than just a hostname.
 GITLAB_API_URL = "https://gitlab.com/api/v4"
+# The name of the saved secret that holds the GitLab token. The catalog form
+# may point at a differently named secret, but the conversation still sees the
+# token as the GITLAB_TOKEN environment variable, which is what the prompt
+# spells out.
+GITLAB_TOKEN_SECRET = "GITLAB_TOKEN"
 # Secrets forwarded to the agent conversation, by name. The GitLab token is
 # here because the agent reads the issue and its discussion itself rather than
 # being handed a copy; without it, private projects are unreadable. It stays an
@@ -89,6 +94,7 @@ _CONFIG_TYPES: dict[str, type] = {
     "merge_request_mode": str,
     "max_new_per_run": int,
     "gitlab_api_url": str,
+    "gitlab_token_secret": str,
     "agent_secret_names": list,
     "openhands_url": str,
 }
@@ -147,6 +153,13 @@ def load_config(directory: Path | None = None) -> dict:
             raise SystemExit(
                 f"{CONFIG_FILENAME}: gitlab_api_url must be an http(s) URL, got {value!r}"
             )
+        # A secret is looked up by an env-var name, so a lowercase value here
+        # would only ever miss.
+        if key == "gitlab_token_secret" and not re.fullmatch(r"[A-Z_][A-Z0-9_]*", value):
+            raise SystemExit(
+                f"{CONFIG_FILENAME}: gitlab_token_secret must be a secret name such as "
+                f"GITLAB_TOKEN, got {value!r}"
+            )
         config[key] = value
     return config
 
@@ -201,6 +214,7 @@ if "merge_request_mode" in _CONFIG:
     DRAFT_MERGE_REQUEST = _MERGE_REQUEST_MODES[_CONFIG["merge_request_mode"]]
 MAX_NEW_PER_RUN = _CONFIG.get("max_new_per_run", MAX_NEW_PER_RUN)
 GITLAB_API_URL = _CONFIG.get("gitlab_api_url", GITLAB_API_URL).rstrip("/")
+GITLAB_TOKEN_SECRET = _CONFIG.get("gitlab_token_secret", GITLAB_TOKEN_SECRET)
 AGENT_SECRET_NAMES = _CONFIG.get("agent_secret_names", AGENT_SECRET_NAMES)
 DEFAULT_OPENHANDS_URL = _CONFIG.get("openhands_url", DEFAULT_OPENHANDS_URL)
 
@@ -446,9 +460,10 @@ def _gitlab_paginate(token: str, path: str, params: dict | None = None) -> list:
 
 
 def _resolve_gitlab_token() -> str:
-    # On a cloud run, a user with no GITLAB_TOKEN secret is served the token of
-    # their connected GitLab integration under the second name.
-    for name in ("GITLAB_TOKEN", "gitlab_token") if IS_CLOUD else ("GITLAB_TOKEN",):
+    # On a cloud run, a user with no token saved under the configured name is
+    # served the token of their connected GitLab integration under the second
+    # name.
+    for name in (GITLAB_TOKEN_SECRET, "gitlab_token") if IS_CLOUD else (GITLAB_TOKEN_SECRET,):
         try:
             token = get_secret(name)
             if token:
@@ -456,7 +471,7 @@ def _resolve_gitlab_token() -> str:
         except Exception:
             pass
     raise RuntimeError(
-        "GITLAB_TOKEN secret is not set. "
+        f"{GITLAB_TOKEN_SECRET} secret is not set. "
         "Go to OpenHands Settings → Secrets and add your GitLab personal access token."
     )
 
@@ -468,7 +483,7 @@ def _verify_token(token: str) -> None:
     except urllib.error.HTTPError as exc:
         if exc.code in (401, 403):
             raise RuntimeError(
-                "GITLAB_TOKEN is invalid, expired, or lacks the api scope."
+                f"{GITLAB_TOKEN_SECRET} is invalid, expired, or lacks the api scope."
             ) from exc
         raise RuntimeError(f"GitLab /user check failed: {exc.code}") from exc
 
@@ -898,6 +913,16 @@ def _list_secret_names(agent_url: str, api_key: str) -> list[dict]:
         return []
 
 
+def _secret_lookup_name(name: str) -> str:
+    """The saved secret a forwarded conversation env name is read from.
+
+    The conversation's GITLAB_TOKEN environment entry reads the secret named
+    by GITLAB_TOKEN_SECRET, which the catalog path may rename. Every other
+    forwarded name is the saved secret's own name.
+    """
+    return GITLAB_TOKEN_SECRET if name == "GITLAB_TOKEN" else name
+
+
 def _build_secrets_payload(agent_url: str, api_key: str) -> dict:
     """Forward only the secrets named in AGENT_SECRET_NAMES.
 
@@ -914,10 +939,11 @@ def _build_secrets_payload(agent_url: str, api_key: str) -> dict:
     available = {secret.get("name", "") for secret in _list_secret_names(agent_url, api_key)}
     secrets: dict = {}
     for name in AGENT_SECRET_NAMES:
-        if name not in available:
-            print(f"  Warning: secret '{name}' is not set in this deployment; not forwarded")
+        lookup_name = _secret_lookup_name(name)
+        if lookup_name not in available:
+            print(f"  Warning: secret '{lookup_name}' is not set in this deployment; not forwarded")
             continue
-        lookup: dict = {"kind": "LookupSecret", "url": f"/api/settings/secrets/{name}"}
+        lookup: dict = {"kind": "LookupSecret", "url": f"/api/settings/secrets/{lookup_name}"}
         if api_key:
             lookup["headers"] = {"X-Session-API-Key": api_key}
         secrets[name] = lookup
