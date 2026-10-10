@@ -119,9 +119,9 @@
     "timeout": {
       "type": "number",
       "label": "Timeout (seconds)",
-      "help": "Maximum time a single run may take. Leave empty for the default of 600 seconds (10 minutes); maximum 1800 seconds (30 minutes).",
+      "help": "Maximum time a single run may take. Leave empty for the default of 600 seconds (10 minutes); maximum 7200 seconds (2 hours).",
       "required": false,
-      "constraints": { "min": 1, "max": 1800 }
+      "constraints": { "min": 1, "max": 7200 }
     },
     "schedule": { "type": "schedule", "label": "Frequency", "required": false }
   },

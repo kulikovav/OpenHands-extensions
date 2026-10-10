@@ -90,7 +90,7 @@
           "required": false,
           "constraints": {
             "min": 1,
-            "max": 1800
+            "max": 7200
           }
         }
       }
