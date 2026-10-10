@@ -4,11 +4,7 @@
   "category": "Software development",
   "description": "Watch for a configurable label on GitLab issues, implement the issue in a clone of the default branch, and open a merge request for each label event.",
   "requires": {
-    "integrations": {
-      "gitlab": {
-        "message": "Used to read labelled issues, push the branch, and open the merge request."
-      }
-    },
+    "integrations": {},
     "features": [
       "customTarball"
     ]
