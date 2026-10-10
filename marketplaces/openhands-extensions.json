@@ -763,6 +763,20 @@
       ]
     },
     {
+      "name": "gitlab-mr-reviewer",
+      "source": "./skills/gitlab-mr-reviewer",
+      "description": "Create an automation that reviews GitLab merge requests when a configurable trigger label is applied. Starts one OpenHands review conversation per label event, inspects full MR and project context, and posts the final review note back to GitLab.",
+      "category": "automations",
+      "keywords": [
+        "gitlab",
+        "merge-request",
+        "review",
+        "code-review",
+        "automation",
+        "integration"
+      ]
+    },
+    {
       "name": "incident-retrospective",
       "source": "./skills/incident-retrospective",
       "description": "Create an automation that drafts incident retrospectives by gathering incident-channel messages from Slack, collecting linked tickets from Linear, and publishing a retrospective draft to Notion with timeline, impact summary, root-cause hypotheses, and action items.",

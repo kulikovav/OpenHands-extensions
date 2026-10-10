@@ -1,0 +1,20 @@
+{
+  "name": "gitlab-mr-reviewer",
+  "version": "1.0.0",
+  "description": "Create an automation that reviews GitLab merge requests when a configurable trigger label is applied. It starts one OpenHands review conversation per label event, inspects full MR and project context, and posts the final review note back to GitLab.",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "gitlab",
+    "merge-request",
+    "review",
+    "code-review",
+    "automation",
+    "integration"
+  ]
+}
