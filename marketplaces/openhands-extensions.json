@@ -341,6 +341,18 @@
       ]
     },
     {
+      "name": "glab",
+      "source": "./skills/glab",
+      "description": "GitLab CLI (glab) for working with GitLab from the command line. Read this skill before running any glab or GitLab API command.",
+      "category": "code-hosting",
+      "keywords": [
+        "gitlab",
+        "glab",
+        "cli",
+        "api"
+      ]
+    },
+    {
       "name": "gitlab",
       "source": "./skills/gitlab",
       "description": "Interact with GitLab repositories, merge requests, and APIs using the GITLAB_TOKEN environment variable. Use when working with code hosted on GitLab or managing GitLab resources.",
@@ -349,6 +361,70 @@
         "gitlab",
         "git",
         "merge-request"
+      ]
+    },
+    {
+      "name": "gitlab-commit-push-mr",
+      "source": "./skills/gitlab-commit-push-mr",
+      "description": "Commit, push, and open a GitLab merge request via the GitLab API (glab). Use when asked to ship/open an MR on GitLab, or for MR-description-only flows like writing, rewriting, or describing an MR body.",
+      "category": "code-hosting",
+      "keywords": [
+        "gitlab",
+        "merge-request",
+        "commit",
+        "push",
+        "glab"
+      ]
+    },
+    {
+      "name": "gitlab-fix-ci",
+      "source": "./skills/gitlab-fix-ci",
+      "description": "Find failing CI jobs, inspect logs, and apply focused fixes. Use when branch CI is failing and needs a fast, iterative path to green checks.",
+      "category": "code-hosting",
+      "keywords": [
+        "gitlab",
+        "ci",
+        "pipeline",
+        "glab"
+      ]
+    },
+    {
+      "name": "gitlab-loop-on-ci",
+      "source": "./skills/gitlab-loop-on-ci",
+      "description": "Watches GitLab CI runs on the current branch and iterates on failures until all checks pass. Uses glab CLI to monitor pipeline status, inspect failed job logs, apply focused fixes, and report results. Use when the user needs to watch branch CI, iterate on failures until green, or fix CI until all checks pass.",
+      "category": "code-hosting",
+      "keywords": [
+        "gitlab",
+        "ci",
+        "pipeline",
+        "watch",
+        "glab"
+      ]
+    },
+    {
+      "name": "gitlab-resolve-mr-feedback",
+      "source": "./skills/gitlab-resolve-mr-feedback",
+      "description": "Judge GitLab MR review feedback centrally, apply valid fixes, and complete review threads with resolution verified via the GitLab API (glab). Use when addressing feedback already left on a GitLab merge request — diff discussions, MR-level threads, or MR comments. Use gitlab-review-and-ship for reviewing code before feedback exists.",
+      "category": "code-hosting",
+      "keywords": [
+        "gitlab",
+        "merge-request",
+        "review",
+        "feedback",
+        "glab"
+      ]
+    },
+    {
+      "name": "gitlab-review-and-ship",
+      "source": "./skills/gitlab-review-and-ship",
+      "description": "Run a structured review, close key issues, and ship changes via MR. Use when reviewing changes before shipping, closing critical issues, or opening/updating a merge request.",
+      "category": "code-hosting",
+      "keywords": [
+        "gitlab",
+        "merge-request",
+        "review",
+        "ship",
+        "glab"
       ]
     },
     {

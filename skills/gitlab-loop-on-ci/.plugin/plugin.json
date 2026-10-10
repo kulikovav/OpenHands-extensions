@@ -1,0 +1,19 @@
+{
+  "name": "gitlab-loop-on-ci",
+  "version": "1.0.0",
+  "description": "Watches GitLab CI runs on the current branch and iterates on failures until all checks pass. Uses glab CLI to monitor pipeline status, inspect failed job logs, apply focused fixes, and report results. Use when the user needs to watch branch CI, iterate on failures until green, or fix CI until all checks pass.",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "gitlab",
+    "ci",
+    "pipeline",
+    "watch",
+    "glab"
+  ]
+}

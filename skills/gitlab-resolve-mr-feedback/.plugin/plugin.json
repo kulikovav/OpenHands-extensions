@@ -1,0 +1,19 @@
+{
+  "name": "gitlab-resolve-mr-feedback",
+  "version": "1.0.0",
+  "description": "Judge GitLab MR review feedback centrally, apply valid fixes, and complete review threads with resolution verified via the GitLab API (glab). Use when addressing feedback already left on a GitLab merge request — diff discussions, MR-level threads, or MR comments. Use gitlab-review-and-ship for reviewing code before feedback exists.",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "gitlab",
+    "merge-request",
+    "review",
+    "feedback",
+    "glab"
+  ]
+}

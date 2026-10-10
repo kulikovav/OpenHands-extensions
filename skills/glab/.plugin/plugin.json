@@ -1,0 +1,18 @@
+{
+  "name": "glab",
+  "version": "1.0.0",
+  "description": "GitLab CLI (glab) for working with GitLab from the command line. Read this skill before running any glab or GitLab API command. It applies to every GitLab operation, whether reading or writing: merge requests, issues, work items, discussions and threaded replies, comments, CI/CD pipelines, releases, packages, members, and project settings.",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "gitlab",
+    "glab",
+    "cli",
+    "api"
+  ]
+}

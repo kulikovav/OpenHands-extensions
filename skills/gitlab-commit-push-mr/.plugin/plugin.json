@@ -1,0 +1,19 @@
+{
+  "name": "gitlab-commit-push-mr",
+  "version": "1.0.0",
+  "description": "Commit, push, and open a GitLab merge request via the GitLab API (glab). Use when asked to ship/open an MR on GitLab, or for MR-description-only flows like writing, rewriting, or describing an MR body.",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "gitlab",
+    "merge-request",
+    "commit",
+    "push",
+    "glab"
+  ]
+}
