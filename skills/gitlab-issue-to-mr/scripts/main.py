@@ -79,6 +79,8 @@ GITLAB_TOKEN_SECRET = "GITLAB_TOKEN"
 AGENT_SECRET_NAMES: list[str] = ["GITLAB_TOKEN"]
 DEFAULT_OPENHANDS_URL = "http://localhost:8000"
 
+# Fallback commit identity, used when the OpenHands settings leave git_user_name
+# or git_user_email unset.
 COMMIT_AUTHOR_NAME = "OpenHands"
 COMMIT_AUTHOR_EMAIL = "openhands@all-hands.dev"
 
@@ -745,6 +747,8 @@ def _prepare_repository(
     label_event_id,
     base_branch: str,
     branch: str,
+    author_name: str,
+    author_email: str,
 ) -> tuple:
     """Clone the default branch and open the working branch on it.
 
@@ -769,8 +773,8 @@ def _prepare_repository(
             ],
             token=token,
         )
-        _git(["config", "user.name", COMMIT_AUTHOR_NAME], cwd=checkout)
-        _git(["config", "user.email", COMMIT_AUTHOR_EMAIL], cwd=checkout)
+        _git(["config", "user.name", author_name], cwd=checkout)
+        _git(["config", "user.email", author_email], cwd=checkout)
         # The agent runs git in this clone too. Without this, `git log` and
         # `git diff` open a pager that waits for a keypress nobody will send.
         _git(["config", "core.pager", "cat"], cwd=checkout)
@@ -885,6 +889,18 @@ def _get_agent_dict(agent_url: str, api_key: str) -> dict:
         "llm": llm,
         "tools": [{"name": "terminal"}, {"name": "file_editor"}],
     }
+
+
+def _commit_author(agent_url: str, api_key: str) -> tuple[str, str]:
+    """Use the git identity from the OpenHands settings; fall back per field."""
+    try:
+        data = _fetch_settings(agent_url, api_key)
+        name = str(data.get("git_user_name") or "").strip()
+        email = str(data.get("git_user_email") or "").strip()
+    except Exception as exc:
+        print(f"  Warning: could not read git identity from settings: {exc}")
+        return COMMIT_AUTHOR_NAME, COMMIT_AUTHOR_EMAIL
+    return name or COMMIT_AUTHOR_NAME, email or COMMIT_AUTHOR_EMAIL
 
 
 def _get_mcp_config(agent_url: str, api_key: str) -> dict | None:
@@ -1258,8 +1274,10 @@ def _start_task(
     try:
         branch = _branch_name(gitlab_token, project, iid)
         if not IS_CLOUD:
+            author_name, author_email = _commit_author(agent_url, api_key)
             workspace_dir, base_sha = _prepare_repository(
-                gitlab_token, project, clone_url, iid, label_event_id, base_branch, branch
+                gitlab_token, project, clone_url, iid, label_event_id,
+                base_branch, branch, author_name, author_email,
             )
         prompt = _build_implementation_prompt(
             project, issue, label_event, branch, base_branch, base_sha

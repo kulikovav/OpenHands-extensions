@@ -62,6 +62,8 @@ MAX_NEW_PER_RUN = 3
 AGENT_SECRET_NAMES: list[str] = ["GITHUB_PERSONAL_ACCESS_TOKEN"]
 DEFAULT_OPENHANDS_URL = "http://localhost:8000"
 
+# Fallback commit identity, used when the OpenHands settings leave git_user_name
+# or git_user_email unset.
 COMMIT_AUTHOR_NAME = "OpenHands"
 COMMIT_AUTHOR_EMAIL = "openhands@all-hands.dev"
 
@@ -558,7 +560,10 @@ def _checkout_path(repo: str, period: str) -> Path:
     return _checkouts_root() / _repo_slug(repo) / period
 
 
-def _prepare_repository(token: str, repo: str, period: str, base_branch: str, branch: str) -> tuple:
+def _prepare_repository(
+    token: str, repo: str, period: str,
+    base_branch: str, branch: str, author_name: str, author_email: str,
+) -> tuple:
     """Clone the default branch and open the working branch on it.
 
     The clone is shallow and single-branch: the agent needs the tree, not the
@@ -582,8 +587,8 @@ def _prepare_repository(token: str, repo: str, period: str, base_branch: str, br
             ],
             token=token,
         )
-        _git(["config", "user.name", COMMIT_AUTHOR_NAME], cwd=checkout)
-        _git(["config", "user.email", COMMIT_AUTHOR_EMAIL], cwd=checkout)
+        _git(["config", "user.name", author_name], cwd=checkout)
+        _git(["config", "user.email", author_email], cwd=checkout)
         # The agent runs git in this clone too. Without this, `git log` and
         # `git diff` open a pager that waits for a keypress nobody will send.
         _git(["config", "core.pager", "cat"], cwd=checkout)
@@ -698,6 +703,18 @@ def _get_agent_dict(agent_url: str, api_key: str) -> dict:
         "llm": llm,
         "tools": [{"name": "terminal"}, {"name": "file_editor"}],
     }
+
+
+def _commit_author(agent_url: str, api_key: str) -> tuple[str, str]:
+    """Use the git identity from the OpenHands settings; fall back per field."""
+    try:
+        data = _fetch_settings(agent_url, api_key)
+        name = str(data.get("git_user_name") or "").strip()
+        email = str(data.get("git_user_email") or "").strip()
+    except Exception as exc:
+        print(f"  Warning: could not read git identity from settings: {exc}")
+        return COMMIT_AUTHOR_NAME, COMMIT_AUTHOR_EMAIL
+    return name or COMMIT_AUTHOR_NAME, email or COMMIT_AUTHOR_EMAIL
 
 
 def _list_secret_names(agent_url: str, api_key: str) -> list[dict]:
@@ -1027,8 +1044,10 @@ def _start_task(
     try:
         branch = _branch_name(github_token, repo, period)
         if not IS_CLOUD:
+            author_name, author_email = _commit_author(agent_url, api_key)
             workspace_dir, base_sha = _prepare_repository(
-                github_token, repo, period, base_branch, branch
+                github_token, repo, period, base_branch, branch,
+                author_name, author_email,
             )
         prompt = _build_maintenance_prompt(
             repo, agents_state, branch, base_branch, base_sha, period

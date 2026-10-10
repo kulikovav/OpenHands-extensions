@@ -320,7 +320,8 @@ For each repository:
      variant of it.
    - Clones the default branch, shallow and single-branch, into
      `{WORKSPACE_BASE}/issue-to-pr/{owner}__{repo}/issue-{number}-{event_id}`,
-     sets the commit identity, and creates the branch. `origin` keeps its plain
+     sets the commit identity from the deployment's `git_user_name` and
+     `git_user_email` settings, and creates the branch. `origin` keeps its plain
      HTTPS URL, so the workspace holds no credential.
    - Starts an OpenHands conversation **whose working directory is that clone**,
      with the issue title, body, labels, and discussion in the prompt, and only

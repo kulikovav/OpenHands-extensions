@@ -894,3 +894,43 @@ def test_state_is_written_atomically(main):
     path = Path(main._state_file_path("group/project"))
     assert json.loads(path.read_text()) == state
     assert not Path(f"{path}.tmp").exists()
+
+
+# ── Commit author ─────────────────────────────────────────────────────────────
+
+
+def test_commit_author_comes_from_settings_with_fallbacks(main, monkeypatch):
+    """The settings git_user_name/git_user_email win; gaps and errors fall back."""
+    monkeypatch.setattr(
+        main, "_fetch_settings",
+        lambda url, key: {"git_user_name": "  Ada  ", "git_user_email": "ada@example.com"},
+    )
+    assert main._commit_author("http://agent", "key") == ("Ada", "ada@example.com")
+
+    monkeypatch.setattr(
+        main, "_fetch_settings",
+        lambda url, key: {"git_user_name": "Ada", "git_user_email": "  "},
+    )
+    assert main._commit_author("http://agent", "key") == ("Ada", main.COMMIT_AUTHOR_EMAIL)
+
+    monkeypatch.setattr(
+        main, "_fetch_settings",
+        lambda url, key: {"git_user_name": "", "git_user_email": None},
+    )
+    assert main._commit_author("http://agent", "key") == (
+        main.COMMIT_AUTHOR_NAME, main.COMMIT_AUTHOR_EMAIL,
+    )
+
+    # A malformed payload falls back instead of failing the task start.
+    monkeypatch.setattr(main, "_fetch_settings", lambda url, key: None)
+    assert main._commit_author("http://agent", "key") == (
+        main.COMMIT_AUTHOR_NAME, main.COMMIT_AUTHOR_EMAIL,
+    )
+
+    def boom(url, key):
+        raise RuntimeError("settings down")
+
+    monkeypatch.setattr(main, "_fetch_settings", boom)
+    assert main._commit_author("http://agent", "key") == (
+        main.COMMIT_AUTHOR_NAME, main.COMMIT_AUTHOR_EMAIL,
+    )

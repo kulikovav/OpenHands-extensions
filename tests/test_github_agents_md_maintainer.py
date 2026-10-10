@@ -350,3 +350,43 @@ def test_the_icon_vocabulary_matches_the_interface_manifest():
     nav_icons = json.dumps(interface)
     for slug in catalog["properties"]["icon"]["enum"]:
         assert f'"{slug}"' in nav_icons, f"{slug} is not an icon the interface manifest knows"
+
+
+# ── Commit author ─────────────────────────────────────────────────────────────
+
+
+def test_commit_author_comes_from_settings_with_fallbacks(main, monkeypatch):
+    """The settings git_user_name/git_user_email win; gaps and errors fall back."""
+    monkeypatch.setattr(
+        main, "_fetch_settings",
+        lambda url, key: {"git_user_name": "  Ada  ", "git_user_email": "ada@example.com"},
+    )
+    assert main._commit_author("http://agent", "key") == ("Ada", "ada@example.com")
+
+    monkeypatch.setattr(
+        main, "_fetch_settings",
+        lambda url, key: {"git_user_name": "Ada", "git_user_email": "  "},
+    )
+    assert main._commit_author("http://agent", "key") == ("Ada", main.COMMIT_AUTHOR_EMAIL)
+
+    monkeypatch.setattr(
+        main, "_fetch_settings",
+        lambda url, key: {"git_user_name": "", "git_user_email": None},
+    )
+    assert main._commit_author("http://agent", "key") == (
+        main.COMMIT_AUTHOR_NAME, main.COMMIT_AUTHOR_EMAIL,
+    )
+
+    # A malformed payload falls back instead of failing the task start.
+    monkeypatch.setattr(main, "_fetch_settings", lambda url, key: None)
+    assert main._commit_author("http://agent", "key") == (
+        main.COMMIT_AUTHOR_NAME, main.COMMIT_AUTHOR_EMAIL,
+    )
+
+    def boom(url, key):
+        raise RuntimeError("settings down")
+
+    monkeypatch.setattr(main, "_fetch_settings", boom)
+    assert main._commit_author("http://agent", "key") == (
+        main.COMMIT_AUTHOR_NAME, main.COMMIT_AUTHOR_EMAIL,
+    )
