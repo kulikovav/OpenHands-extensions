@@ -644,6 +644,20 @@
       ]
     },
     {
+      "name": "security-audit",
+      "source": "./skills/security-audit",
+      "description": "Security guidance and vulnerability review for codebases, APIs, services, CLI tools, libraries, and daemons. Use for security questions, focused reviews, vulnerability research, security audits, or pen tests. Run the complete workflow only for explicit codebase audit or pen-test requests, full/comprehensive/end-to-end reviews, or requested report artifacts.",
+      "category": "code-quality",
+      "keywords": [
+        "security-audit",
+        "security",
+        "vulnerability",
+        "pen-test",
+        "threat-model",
+        "code-review"
+      ]
+    },
+    {
       "name": "skill-creator",
       "source": "./skills/skill-creator",
       "description": "Guide for creating effective skills. This skill should be used when users want to create a new skill (or update an existing skill) that extends Claude's capabilities with specialized knowledge, workflows, or tool integrations.",
