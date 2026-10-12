@@ -114,11 +114,8 @@ def test_featured_automations_resolve_to_catalog_entries():
         ),
         (
             "more filters than the host renders",
-            lambda doc: doc["pages"]["list"]["filters"].extend(
-                [
-                    {**doc["pages"]["list"]["filters"][0], "label": f"Again {i}"}
-                    for i in range(3)
-                ]
+            lambda doc: doc["pages"]["list"]["filters"].append(
+                {**doc["pages"]["list"]["filters"][0], "label": "Filter again"}
             ),
         ),
     ],

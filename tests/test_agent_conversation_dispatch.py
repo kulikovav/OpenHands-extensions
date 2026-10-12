@@ -146,6 +146,8 @@ def test_each_conversation_gets_its_own_working_directory(monkeypatch):
         f"/runs/run-1/conversations/{second['conversation_id']}",
     ]
     assert working_dirs[0] != working_dirs[1]
+
+
 def test_review_work_uses_configured_local_workspace(monkeypatch, tmp_path):
     monkeypatch.setattr(agent_conversation, "_register_tools", lambda: None)
     monkeypatch.setenv("WORKSPACE_BASE", str(tmp_path))
