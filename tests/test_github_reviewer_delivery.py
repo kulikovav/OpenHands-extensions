@@ -4,6 +4,7 @@ import json
 import sys
 from pathlib import Path
 from unittest.mock import MagicMock, Mock
+from urllib.error import HTTPError
 from uuid import NAMESPACE_URL, uuid5
 
 import pytest
@@ -164,7 +165,7 @@ def test_reviewer_submits_each_labeled_exact_head(tmp_path, monkeypatch):
 
     assert submit.call_args.kwargs["subject"] == "99:pr:2"
     assert submit.call_args.kwargs["delivery"] == "7:head-2"
-    prompt = submit.call_args.kwargs["prompt"]
+    prompt = submit.call_args.kwargs["prompt"]("conversation")
     assert "publish the review directly to GitHub" in prompt
     assert "Do not create commit statuses or Checks" in prompt
     assert "FACTORY_GITHUB_REVIEWER_TOKEN" in prompt
@@ -203,7 +204,7 @@ def test_reviewer_prompt_forbids_republishing_an_unchanged_reviewed_head(
 
     run.run()
 
-    prompt = submit.call_args.kwargs["prompt"]
+    prompt = submit.call_args.kwargs["prompt"]("conversation")
     assert "already published a review on `head-2`" in prompt
     assert "no one else has commented since that review" in prompt
     assert "Review the head again only when the head has moved" in prompt
@@ -232,8 +233,9 @@ def test_reviewer_submits_requested_exact_head(tmp_path, monkeypatch, draft):
     call = run.dispatcher.deliver.call_args.kwargs
     assert call["subject"] == "99:pr:2"
     assert call["delivery"] == "42:head-2"
-    assert "latest review request for `all-hands-bot` event 42" in call["prompt"]
-    assert "new head requires another reviewer request" in call["prompt"]
+    prompt = call["prompt"]("conversation")
+    assert "latest review request for `all-hands-bot` event 42" in prompt
+    assert "new head requires another reviewer request" in prompt
 
 
 def _real_dispatcher(dispatcher_class, monkeypatch, conversation):
@@ -341,7 +343,8 @@ def test_reviewer_ignores_request_for_another_reviewer(tmp_path, monkeypatch):
     run.dispatcher.deliver.assert_not_called()
 
 
-def test_reviewer_event_hands_positive_review_to_maintainer(tmp_path, monkeypatch):
+@pytest.mark.parametrize("missing_issue", [False, True])
+def test_reviewer_event_hands_positive_review_to_maintainer(tmp_path, monkeypatch, missing_issue):
     module, run = _reviewer(tmp_path, monkeypatch)
     _event(monkeypatch, action="submitted")
     run.config["maintainers"] = "neubig, VascoSch92"
@@ -352,14 +355,26 @@ def test_reviewer_event_hands_positive_review_to_maintainer(tmp_path, monkeypatc
         "created_at": "2026-01-01T00:00:00Z",
         "requested_reviewer": {"login": "all-hands-bot"},
     }
-    run.gh = Mock(side_effect=[{"id": 99}, pr, pr])
+    pr["body"] = "Fixes #7"
+
+    def gh(method, path, body=None):
+        if path == "/issues/7":
+            if missing_issue:
+                raise HTTPError(path, 404, "missing", {}, None)
+            return {"labels": [{"name": "priority:high"}]}
+        return {"id": 99} if path == "" else pr
+
+    run.gh = Mock(side_effect=gh)  # GitHub transport boundary.
     run.gh_pages = lambda path: [request] if path.endswith("/events") else _reviews()
     handoff = Mock(return_value="VascoSch92")
     monkeypatch.setattr(module, "request_maintainer_review", handoff)
 
     run.run()
 
-    handoff.assert_called_once_with(run, pr, ["neubig", "VascoSch92"])
+    if missing_issue:
+        handoff.assert_not_called()
+    else:
+        handoff.assert_called_once_with(run, pr, ["neubig", "VascoSch92"])
     assert all(call.args[0] != "DELETE" for call in run.gh.call_args_list)
     run.dispatcher.deliver.assert_not_called()
 
@@ -379,7 +394,7 @@ def test_reviewer_delayed_submitted_event_completes_prior_request(
         "created_at": "2026-01-03T00:00:00Z",
         "requested_reviewer": {"login": "all-hands-bot"},
     }
-    run.gh = Mock(side_effect=[{"id": 99}, pr, pr])
+    run.gh = Mock(side_effect=[{"id": 99}, pr, {"labels": [{"name": "priority:medium"}]}, pr])
     run.gh_pages = lambda path: (
         [request]
         if path.endswith("/events")
@@ -388,6 +403,7 @@ def test_reviewer_delayed_submitted_event_completes_prior_request(
     handoff = Mock(return_value="VascoSch92")
     monkeypatch.setattr(module, "request_maintainer_review", handoff)
 
+    pr["body"] = "Fixes #7"
     run.run()
 
     handoff.assert_called_once_with(run, pr, ["neubig", "VascoSch92"])
@@ -403,13 +419,14 @@ def test_reviewer_submitted_event_completes_without_request_event(
     _event(monkeypatch, action="submitted", review_id=555)
     run.config["maintainers"] = "neubig"
     pr = {"number": 2, "head": {"sha": "head-2"}, "labels": []}
-    run.gh = Mock(side_effect=[{"id": 99}, pr, pr])
+    run.gh = Mock(side_effect=[{"id": 99}, pr, {"labels": [{"name": "priority:medium"}]}, pr])
     run.gh_pages = lambda path: (
         [] if path.endswith("/events") else _reviews(review_id=555)
     )
     handoff = Mock(return_value="neubig")
     monkeypatch.setattr(module, "request_maintainer_review", handoff)
 
+    pr["body"] = "Fixes #7"
     run.run()
 
     handoff.assert_called_once_with(run, pr, ["neubig"])
@@ -889,10 +906,11 @@ def test_reviewer_hands_positive_exact_head_to_maintainer(tmp_path, monkeypatch)
         "labels": [{"name": "openhands-review"}],
     }
     run.gh_pages = lambda path: [pr] if path.startswith("/pulls?") else _reviews()
-    run.gh = Mock(side_effect=[{"id": 99}, pr, pr, {}])
+    run.gh = Mock(side_effect=[{"id": 99}, pr, {"labels": [{"name": "priority:medium"}]}, pr, {}])
     handoff = Mock(return_value="VascoSch92")
     monkeypatch.setattr(module, "request_maintainer_review", handoff)
 
+    pr["body"] = "Fixes #7"
     run.run()
 
     handoff.assert_called_once_with(run, pr, ["neubig", "VascoSch92"])
@@ -912,13 +930,14 @@ def test_reviewer_retries_failed_handoff_without_clearing_label(tmp_path, monkey
         "labels": [{"name": "openhands-review"}],
     }
     run.gh_pages = lambda path: [pr] if path.startswith("/pulls?") else _reviews()
-    run.gh = Mock(side_effect=[{"id": 99}, pr])
+    run.gh = Mock(side_effect=[{"id": 99}, pr, {"labels": [{"name": "priority:medium"}]}])
     monkeypatch.setattr(
         module,
         "request_maintainer_review",
         Mock(side_effect=RuntimeError("temporary GitHub failure")),
     )
 
+    pr["body"] = "Fixes #7"
     with pytest.raises(RuntimeError, match="Reviewer scan failed for PRs: #2"):
         run.run()
 
@@ -935,7 +954,7 @@ def test_reviewer_reports_permanent_handoff_error_once(tmp_path, monkeypatch):
         "labels": [{"name": "openhands-review"}],
     }
     run.gh_pages = lambda path: [pr] if path.startswith("/pulls?") else _reviews()
-    run.gh = Mock(side_effect=[{"id": 99}, pr, {}, pr, {}])
+    run.gh = Mock(side_effect=[{"id": 99}, pr, {"labels": [{"name": "priority:medium"}]}, {}, pr, {}])
     monkeypatch.setattr(
         module,
         "request_maintainer_review",
@@ -946,9 +965,10 @@ def test_reviewer_reports_permanent_handoff_error_once(tmp_path, monkeypatch):
         ),
     )
 
+    pr["body"] = "Fixes #7"
     run.run()
 
-    assert "configuration check" in run.gh.call_args_list[2].args[2]["body"]
+    assert "configuration check" in run.gh.call_args_list[3].args[2]["body"]
     assert run.gh.call_args_list[-1].args == (
         "DELETE",
         "/issues/2/labels/openhands-review",
@@ -1009,10 +1029,11 @@ def test_reviewer_hands_scope_stop_to_maintainer(tmp_path, monkeypatch):
         if path.startswith("/pulls?")
         else _reviews(verdict="🛑 MAINTAINER DECISION REQUIRED")
     )
-    run.gh = Mock(side_effect=[{"id": 99}, pr, pr, {}])
+    run.gh = Mock(side_effect=[{"id": 99}, pr, {"labels": [{"name": "priority:medium"}]}, pr, {}])
     handoff = Mock(return_value="VascoSch92")
     monkeypatch.setattr(module, "request_maintainer_review", handoff)
 
+    pr["body"] = "Fixes #7"
     run.run()
 
     handoff.assert_called_once_with(run, pr, ["neubig", "VascoSch92"])
@@ -2054,7 +2075,9 @@ def test_reviewer_scheduled_scan_reviews_an_outstanding_request(tmp_path, monkey
     run.dispatcher.deliver.assert_called_once()
     call = run.dispatcher.deliver.call_args.kwargs
     assert call["delivery"] == "42:head-2"
-    assert "latest review request for `all-hands-bot` event 42" in call["prompt"]
+    assert "latest review request for `all-hands-bot` event 42" in call["prompt"](
+        "conversation"
+    )
 
 
 @pytest.mark.parametrize("draft", [False, True])
@@ -2118,7 +2141,9 @@ def test_reviewer_scheduled_scan_reviews_an_unrequested_green_pr(
     call = run.dispatcher.deliver.call_args.kwargs
     assert call["subject"] == "99:pr:3"
     assert call["delivery"] == "scan:owner/repo:3:head-3"
-    assert "scheduled scan of open, non-draft pull requests" in call["prompt"]
+    assert "scheduled scan of open, non-draft pull requests" in call["prompt"](
+        "conversation"
+    )
 
 
 def test_reviewer_scheduled_scan_skips_a_pr_with_a_current_head_review(
@@ -2305,7 +2330,9 @@ class _DedupeDispatcher:
 
     def deliver(self, *, subject, delivery, prompt, head=""):
         self.calls.append((subject, delivery))
-        self.prompts.append(prompt)
+        # The worker's prompt names the receiving conversation, so render it
+        # the way the real dispatcher does.
+        self.prompts.append(prompt(subject))
         self.heads.append(head)
         if self.seen.get(subject) == delivery:
             return {"disposition": "deduplicated", "conversation_id": subject}
@@ -2858,13 +2885,13 @@ def test_unrequested_scan_reviews_the_oldest_eligible_prs_under_the_cap(
     }
 
 
-def test_unrequested_scan_reconciles_a_completed_review_and_hands_off(
+def test_unrequested_scan_reconciles_a_completed_review_without_handoff(
     tmp_path, monkeypatch
 ):
     """A head that already carries a completed review is not re-dispatched.
 
-    The review is found on the current head, so the scan reconciles it and runs
-    the existing maintainer handoff instead of starting a second conversation.
+    The review is reconciled without a second conversation or a handoff when
+    no linked issue has an eligible priority.
     """
     module, (one,) = _scan_reviewers(tmp_path, monkeypatch, ["owner/one"])
     _wire_scan(
@@ -2892,7 +2919,7 @@ def test_unrequested_scan_reconciles_a_completed_review_and_hands_off(
     _run_scan(module, [one])
 
     assert one.dispatcher.seen == {}
-    handoff.assert_called_once()
+    handoff.assert_not_called()
 
 
 def test_unrequested_scan_still_gates_a_blocked_pr_past_the_cap(
@@ -3110,3 +3137,129 @@ def test_a_retried_conversation_uses_a_launch_slot(tmp_path, monkeypatch):
     intake.drain()
 
     assert started == [1]
+
+
+@pytest.mark.parametrize("status", [404, 403, 500])
+def test_linked_issue_lookup_http_errors(tmp_path, monkeypatch, status):
+    _, run = _reviewer(tmp_path, monkeypatch)
+    def gh(method, path):
+        raise HTTPError(path, status, "unavailable", {}, None)
+    run.gh = gh
+    pr = {"body": "Fixes #7"}
+    if status == 404:
+        assert not run._linked_issue_allows_handoff(pr)
+    else:
+        with pytest.raises(HTTPError):
+            run._linked_issue_allows_handoff(pr)
+
+
+def test_missing_link_does_not_hide_low_priority_link(tmp_path, monkeypatch):
+    _, run = _reviewer(tmp_path, monkeypatch)
+    def gh(method, path):
+        if path == "/issues/7":
+            raise HTTPError(path, 404, "missing", {}, None)
+        return {"labels": [{"name": "priority:low"}]}
+    run.gh = gh
+    assert not run._linked_issue_allows_handoff({"body": "Fixes #7, fixes #8"})
+
+
+def test_rotating_window_revisits_budget_deferred_heads(tmp_path, monkeypatch):
+    module, run = _reviewer(tmp_path, monkeypatch)
+    monkeypatch.setattr(module.workflow, "_kv_available", lambda: False)
+    prs = [{"number": n, "labels": []} for n in range(27)]
+    reviewed = set(range(10))
+    blocked = {10, 11}
+    visited = set()
+    started = []
+    for _ in range(30):
+        intake = module.ReviewIntake()
+        window = run._rotating_window(prs, "openhands-review")
+        visited.update(pr["number"] for pr in window)
+        for pr in window:
+            n = pr["number"]
+            if n in reviewed or n in blocked:
+                continue
+            def start(n=n):
+                reviewed.add(n)
+                started.append(n)
+                return {"disposition": "created"}
+            intake.register({"priority": 1, "created_at": "", "repository": run.repository,
+                          "number": n, "config": {"max_new_per_run": 2}, "start": start})
+        intake.drain()
+    assert visited == set(range(27))
+    assert set(started) == set(range(27)) - set(range(10)) - blocked
+    assert len(started) == len(set(started))
+
+
+@pytest.mark.parametrize("trigger_kind", ["scheduled", "requested", "submitted"])
+@pytest.mark.parametrize("scope_stop", [False, True])
+@pytest.mark.parametrize(
+    "body,issues,expected",
+    [
+        ("", {}, False),
+        ("Fixes #7", {7: {}}, False),
+        ("Fixes #7", {7: {"labels": [{"name": "priority:low"}]}}, False),
+        ("Fixes #7", {7: None}, False),
+        ("Fixes #7", {7: {"labels": [{"name": "priority:medium"}]}}, True),
+        ("Fixes #7", {7: {"labels": [{"name": "priority:high"}]}}, True),
+        (
+            "Fixes #7, fixes #8",
+            {
+                7: {"labels": [{"name": "priority:low"}]},
+                8: {"labels": [{"name": "priority:high"}]},
+            },
+            True,
+        ),
+        (
+            "Fixes #7, fixes #8",
+            {7: None, 8: {"labels": [{"name": "priority:medium"}]}},
+            True,
+        ),
+        (
+            "Fixes #7",
+            {7: {"labels": [{"name": "priority:high"}], "pull_request": {}}},
+            False,
+        ),
+        ("Fixes #7", {7: {"labels": [{"name": "priority:normal"}]}}, False),
+    ],
+)
+def test_priority_gates_real_handoff(
+    tmp_path, monkeypatch, trigger_kind, scope_stop, body, issues, expected
+):
+    """Only the GitHub boundary is substituted; completion and selection are real."""
+    module, run = _reviewer(tmp_path, monkeypatch)
+    run.config["maintainers"] = ["maintainer"]
+    verdict = (
+        module.workflow.MAINTAINER_DECISION_VERDICT if scope_stop else "✅ APPROVED"
+    )
+    pr = {
+        "number": 2,
+        "body": body,
+        "head": {"sha": "head-2"},
+        "user": {"login": "author"},
+    }
+    writes = []
+
+    def gh(method, path, data=None):
+        if method == "GET" and path == "/pulls/2":
+            return pr
+        if method == "GET" and path.startswith("/issues/"):
+            issue = issues[int(path.rsplit("/", 1)[1])]
+            if issue is None:
+                raise HTTPError(path, 404, "missing", {}, None)
+            return issue
+        assert method == "POST" and path == "/pulls/2/requested_reviewers"
+        writes.append(data)
+        return {}
+
+    run.gh = gh
+    run.gh_pages = lambda path: (
+        _reviews(verdict=verdict, review_id=42) if path.endswith("/reviews") else []
+    )
+    run.api = lambda *args, **kwargs: {"total_count": 0}
+    trigger = (
+        None if trigger_kind == "scheduled" else {"created_at": "2026-01-01T00:00:00Z"}
+    )
+    submitted = {"id": 42} if trigger_kind == "submitted" else None
+    assert run._finish_completed_review(pr, trigger, submitted_review=submitted)
+    assert writes == ([{"reviewers": ["maintainer"]}] if expected else [])

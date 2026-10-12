@@ -2,11 +2,14 @@
 
 import json
 import os
+import re
 import sys
 from functools import cached_property
+from urllib.error import HTTPError
 from urllib.parse import quote
 
 import main as workflow
+import agent_conversation
 from agent_conversation import AgentConversationDispatcher
 from github_client import GitHubRepository, run_repositories
 from maintainer_handoff import (
@@ -25,6 +28,7 @@ from maintainer_handoff import (
 # approving silently, and a required run that has not completed means waiting,
 # never approval. When the required set cannot be read, the gate falls back to
 # every current-head check and workflow run, so a red head still blocks.
+SCAN_WINDOW = 10
 CHECK_GATE_MARKER = "<!-- openhands-review-gate:"
 NON_BLOCKING_CHECK_CONCLUSIONS = frozenset({"success", "neutral", "skipped"})
 # GitHub parks a fork head's workflow runs at this conclusion until a maintainer
@@ -114,6 +118,57 @@ class ReviewIntake:
 
 
 
+class ScanCursor:
+    """The per-repository position of the rotating unrequested-PR window.
+
+    Classifying one unrequested head costs a review read, a check-run read, and
+    a workflow-run read, so a scan that examined every open PR spent the API
+    budget on the largest repository alone. The scan instead examines a bounded
+    slice of the unrequested backlog and remembers where the slice ended, in the
+    automation service's own KV store - the same facility `main.py` already uses
+    for review state, reached with the same `AUTOMATION_KV_TOKEN` and
+    `AUTOMATION_API_URL`, so no new secret or store is introduced. The next scan
+    resumes past that point, so the whole backlog is covered fairly over several
+    scans.
+
+    When the KV store is unavailable (a local run, or the tests) the position is
+    kept in memory, so the scan still rotates within the run and nothing else
+    about it changes. A KV read or write failure is not fatal: a scan position is
+    not worth aborting reviews over, so the in-memory position is used instead.
+    """
+
+    def __init__(self, repository):
+        self._key = f"review-scan:{workflow._repo_slug(repository)}"
+        self._memory = 0
+
+    def position(self, total):
+        """The stored cursor, reduced to a valid offset into `total` items."""
+        return self._read() % total if total else 0
+
+    def advance(self, cursor):
+        """Record where the next scan's window starts."""
+        self._memory = cursor
+        if not workflow._kv_available():
+            return
+        try:
+            workflow._kv_set(self._key, {"cursor": cursor})
+        except Exception as exc:  # noqa: BLE001 - a cursor is not worth failing a scan
+            print(f"  Warning: scan cursor write failed ({exc})")
+
+    def _read(self):
+        if not workflow._kv_available():
+            return self._memory
+        try:
+            data = workflow._kv_get(self._key) or {}
+        except Exception as exc:  # noqa: BLE001 - fall back to the in-memory cursor
+            print(f"  Warning: scan cursor read failed ({exc})")
+            return self._memory
+        try:
+            return int(data.get("cursor") or 0)
+        except (TypeError, ValueError):
+            return self._memory
+
+
 class PullRequestReviewer(GitHubRepository):
     name = "github-pr-reviewer"
     # The shared intake the shipped entrypoint creates once per scheduled scan,
@@ -121,6 +176,14 @@ class PullRequestReviewer(GitHubRepository):
     # run() invoked on its own (tests, one-off scans), which then bounds its own
     # conversations with a private intake instead.
     scan_intake = None
+
+    @cached_property
+    def structured_reviews(self):
+        if not self.config.get("structured_publication", False):
+            return None
+        from publication import StructuredReviews
+
+        return StructuredReviews(self)
 
     @property
     def intake(self):
@@ -204,7 +267,7 @@ class PullRequestReviewer(GitHubRepository):
             return pr if (author or "").lower() == self.trigger_reviewer else None
         return None
 
-    def _prompt(self, pr, trigger, label=None, delivery_key=None):
+    def _prompt(self, pr, trigger, label=None, delivery_key=None, conversation_id=None):
         number = pr["number"]
         sha = pr["head"]["sha"]
         token = self.token_name
@@ -236,6 +299,7 @@ class PullRequestReviewer(GitHubRepository):
             workspace_instructions=workspace,
             github_token_secret=token,
             trigger_description=trigger_description,
+            conversation_id=conversation_id,
         )
         if label:
             moved_head_instruction = (
@@ -300,6 +364,32 @@ class PullRequestReviewer(GitHubRepository):
             f"second result.{self_review_note}"
         )
 
+    def _linked_issue_allows_handoff(self, pr):
+        """Require a successfully fetched closing issue labeled medium or high."""
+        numbers = {
+            int(number)
+            for number in re.findall(
+                r"(?im)\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+#(\d+)",
+                pr.get("body") or "",
+            )
+        }
+        for number in numbers:
+            try:
+                issue = self.gh("GET", f"/issues/{number}")
+            except HTTPError as exc:
+                if exc.code != 404:
+                    raise
+                continue
+            labels = {
+                (item.get("name") or "").casefold()
+                for item in issue.get("labels", [])
+            }
+            if "pull_request" not in issue and labels & {
+                "priority:medium", "priority:high"
+            }:
+                return True
+        return False
+
     def _finish_completed_review(self, pr, trigger, label=None, submitted_review=None):
         """Complete an exact-head review, including an optional human handoff.
 
@@ -351,16 +441,34 @@ class PullRequestReviewer(GitHubRepository):
             ]
         if not completed:
             return False
+        try:
+            self._annotate_llm_provenance(pr, completed)
+        except Exception as exc:  # noqa: BLE001 - provenance never blocks completion
+            print(
+                json.dumps(
+                    {
+                        "repository": self.repository,
+                        "pr": pr["number"],
+                        "llm_provenance_error": f"{type(exc).__name__}: {exc}",
+                    }
+                ),
+                flush=True,
+            )
         approved = None
         maintainer_decision = False
         for review in sorted(
             completed, key=lambda item: item["submitted_at"], reverse=True
         ):
-            body = (review.get("body") or "").rstrip()
+            # The verdict ends the agent's text; the provenance footer the
+            # automation appends after it is not part of the verdict.
+            body = workflow._without_llm_provenance(review.get("body") or "")
             if body.endswith("✅ APPROVED"):
                 approved = True
                 break
             if body.endswith("🔄 CHANGES REQUESTED"):
+                approved = False
+                break
+            if self.structured_reviews and body.endswith("⏸ INCONCLUSIVE"):
                 approved = False
                 break
             if body.endswith(workflow.MAINTAINER_DECISION_VERDICT):
@@ -370,7 +478,7 @@ class PullRequestReviewer(GitHubRepository):
             return False
         # A scope stop is not an approval: it requests the maintainer decision
         # the change is missing, through the same handoff as an approval.
-        if approved or maintainer_decision:
+        if (approved or maintainer_decision) and self._linked_issue_allows_handoff(pr):
             maintainers = parse_maintainers(self.config.get("maintainers"))
             if maintainers:
                 try:
@@ -411,6 +519,110 @@ class PullRequestReviewer(GitHubRepository):
                 "DELETE", f"/issues/{pr['number']}/labels/{quote(label, safe='')}"
             )
         return True
+
+    def _annotate_llm_provenance(self, pr, reviews):
+        """Append the LLM profile and model to this automation's own reviews.
+
+        The footer describes the conversation that published the review, read
+        back from that conversation rather than from current settings, so a
+        reused conversation reports the LLM it actually runs. Login, head, and
+        time cannot tell two automations sharing a bot account apart, so a
+        review is annotated only when its single run marker names the
+        conversation this automation records for the pull request. Any other
+        review, including one by an overlapping run, is left as it is. A
+        review keeps the metadata recorded in this automation's KV namespace.
+        Review text alone cannot establish that a footer came from the worker.
+        """
+        reviews = [
+            review
+            for review in reviews
+            if workflow._REVIEW_RUN_MARKER_RE.search(review.get("body") or "")
+        ]
+        if not reviews:
+            return
+        repository_id = self.gh("GET", "")["id"]
+        conversation_id = self.dispatcher.subject_conversation(
+            f"{repository_id}:pr:{pr['number']}"
+        )
+        own = workflow._own_reviews(reviews, conversation_id)
+        if not own:
+            return
+        errors = []
+        for review in own:
+            original = review.get("body") or ""
+            has_footer = workflow._without_llm_provenance(original) != original.strip()
+            try:
+                provenance = self._recorded_review_provenance(conversation_id, review["id"])
+            except Exception as exc:
+                # Keep an unverifiable agent-written line from claiming a model.
+                # Finish the remaining reviews before the outer guard logs errors.
+                errors.append(exc)
+                provenance = None
+            if provenance is None:
+                if not has_footer:
+                    continue
+                try:
+                    # Fallback edits use the same atomically chosen tuple.
+                    # A concurrent metadata collector may already have won.
+                    provenance = self._recorded_review_provenance(
+                        conversation_id, review["id"], unavailable=True
+                    )
+                except Exception as exc:
+                    errors.append(exc)
+                    continue
+            body = workflow._with_llm_provenance(original, *provenance)
+            if body != review.get("body"):
+                try:
+                    self.gh(
+                        "PUT",
+                        f"/pulls/{pr['number']}/reviews/{review['id']}",
+                        {"body": body},
+                    )
+                except Exception as exc:
+                    errors.append(exc)
+        if errors:
+            raise errors[0]
+
+    def _recorded_review_provenance(self, conversation_id, review_id, *, unavailable=False):
+        """Record server metadata or an explicit unknown fallback outside agent text."""
+        key = f"review-provenance-{conversation_id}-{review_id}"
+
+        def recorded(value):
+            if (isinstance(value, dict)
+                and value.get("conversation_id") == conversation_id
+                and all(isinstance(value.get(field), str) and value[field]
+                        for field in ("profile", "model"))):
+                return value["profile"], value["model"]
+            return None
+
+        try:
+            saved = recorded(agent_conversation._kv_request(key, "GET"))
+            if saved is not None:
+                return saved
+            provenance = (
+                ("unknown", "unknown") if unavailable
+                else self.dispatcher.llm_provenance(conversation_id)
+            )
+            if provenance is None:
+                # Another collector may have recorded it during the lookup.
+                return recorded(agent_conversation._kv_request(key, "GET"))
+            value = {"conversation_id": conversation_id,
+                     "profile": provenance[0], "model": provenance[1]}
+            # Every edit, including an unknown fallback, uses the first tuple.
+            agent_conversation._kv_request(key + "?nx=true", "PUT", value)
+        except Exception as exc:
+            # A lookup can fail after another collector records the tuple, or
+            # a write can commit before its response is lost. Reconcile both.
+            try:
+                saved = recorded(agent_conversation._kv_request(key, "GET"))
+            except Exception:
+                raise exc
+            if saved is not None:
+                return saved
+            if isinstance(exc, HTTPError) and exc.code == 409:
+                raise ValueError("Stored review provenance does not match its conversation") from exc
+            raise
+        return provenance
 
     @staticmethod
     def _check_app_identity(run):
@@ -901,13 +1113,68 @@ class PullRequestReviewer(GitHubRepository):
             candidates.append(pr)
         return candidates
 
+    @property
+    def _scan_cursor(self):
+        """This repository's scan position, created lazily like the intake."""
+        cursor = self.__dict__.get("_cursor")
+        if cursor is None:
+            cursor = self.__dict__["_cursor"] = ScanCursor(self.repository)
+        return cursor
+
+    def _explicit_candidate(self, pr, label):
+        """Whether a PR was explicitly requested by a caller.
+
+        An explicit `all-hands-bot` review request or a trigger label is a
+        caller's decision, so it is never subject to the rotating window: every
+        explicit candidate is examined on every scan, whatever the stored scan
+        position is.
+        """
+        if label in {item["name"] for item in pr.get("labels", [])}:
+            return True
+        return self._outstanding_review_request(pr)
+
+    def _rotating_window(self, prs, label):
+        """The explicit candidates plus a bounded slice of the unrequested ones.
+
+        Classifying an unrequested head costs a review read and the exact-head
+        check/workflow reads, so examining every open PR in one scan is what let
+        a single run exhaust the API budget and post a managed gate comment for
+        every red or pending head. The unrequested backlog is therefore examined
+        a bounded `SCAN_WINDOW` at a time, starting where the previous scan
+        stopped (the per-repository position in the Automation KV store), so
+        successive scans rotate through the whole backlog. Explicit candidates
+        are always included, so a request is never delayed behind the window.
+        """
+        explicit, unrequested = [], []
+        for pr in prs:
+            if pr.get("draft") and label not in {
+                item["name"] for item in pr.get("labels", [])
+            } and not self._outstanding_review_request(pr):
+                # A draft that is neither labeled nor requested is not reviewable
+                # by the unrequested path either, so drop it before the full read.
+                continue
+            if self._explicit_candidate(pr, label):
+                explicit.append(pr)
+            else:
+                unrequested.append(pr)
+        if not unrequested:
+            return explicit
+        start = self._scan_cursor.position(len(unrequested))
+        window = unrequested[start : start + SCAN_WINDOW]
+        self._scan_cursor.advance(start + len(window))
+        return explicit + window
+
     def run(self):
         repository_id = self.gh("GET", "")["id"]
         label = self.config.get("trigger_label", workflow.TRIGGER_LABEL)
+        if self.structured_reviews:
+            for pending in self.gh_pages("/pulls?state=open"):
+                self.structured_reviews.advance(pending)
         payload = self._event_payload()
         event_mode = payload is not None
         if not event_mode:
-            prs = self._scan_candidates(
+            selector = self._rotating_window if self.config.get("scan_window", False) else self._scan_candidates
+            prs = selector(
                 self.gh_pages("/pulls?state=open&sort=updated&direction=asc"), label
             )
         else:
@@ -956,7 +1223,7 @@ class PullRequestReviewer(GitHubRepository):
                     # conversation or review is created.
                     if pr.get("draft"):
                         continue
-                    if self._has_current_head_review(pr["number"], pr["head"]["sha"]):
+                    if not self.structured_reviews and self._has_current_head_review(pr["number"], pr["head"]["sha"]):
                         self._finish_completed_review(pr, None)
                         continue
                     if self.require_label:
@@ -983,7 +1250,7 @@ class PullRequestReviewer(GitHubRepository):
                 already = self._reviewed_current_head_without_clarification(
                     pr["number"], pr["head"]["sha"]
                 )
-                if already:
+                if already and not self.structured_reviews:
                     print(
                         json.dumps(
                             {
@@ -1013,7 +1280,7 @@ class PullRequestReviewer(GitHubRepository):
                                 f"{quote(trigger_label, safe='')}",
                             )
                     continue
-                if delivery_key is None and self._finish_completed_review(
+                if not self.structured_reviews and delivery_key is None and self._finish_completed_review(
                     pr, trigger, trigger_label, submitted_review
                 ):
                     continue
@@ -1101,13 +1368,35 @@ class PullRequestReviewer(GitHubRepository):
                 + ", ".join(f"#{number}" for number in failures)
             )
 
+    def latest_label_event(self, number):
+        return workflow._latest_trigger_label_event(self.token, self.repository, number)
+
     def _start_review(
         self, repository_id, pr, trigger, sha, trigger_label, delivery_key=None
     ):
+        if self.structured_reviews:
+            latest = self._latest_reviewer_request(pr["number"])
+            generation = f"request:{latest['id']}" if latest else "initial"
+            label_event = self.latest_label_event(pr["number"])
+            if label_event:
+                generation += f":label:{label_event['id']}"
+            comments = self.gh_pages(f"/issues/{pr['number']}/comments")
+            human = [item for item in comments if (item.get("user") or {}).get("type") != "Bot"
+                     and (item.get("user") or {}).get("login", "").lower() != self.github_login.lower()]
+            if human:
+                generation += f":clarification:{max(int(item['id']) for item in human)}"
+            return self.structured_reviews.advance(
+                pr, generation, start=True,
+                explicit=bool(trigger), label=trigger_label, trigger=trigger,
+            )
         result = self.dispatcher.deliver(
             subject=f"{repository_id}:pr:{pr['number']}",
             delivery=delivery_key or f"{trigger['id']}:{sha}",
-            prompt=self._prompt(pr, trigger, trigger_label, delivery_key),
+            # The dispatcher names the conversation it delivers to, so the
+            # prompt can carry that conversation's review marker.
+            prompt=lambda conversation_id: self._prompt(
+                pr, trigger, trigger_label, delivery_key, conversation_id
+            ),
             head=sha,
         )
         print(

@@ -36,32 +36,6 @@ def _filter(document, filter_id):
     )
 
 
-def _with_creator_filter(document):
-    """Add the creator filter, which this fork's document omits.
-
-    The host this fork deploys implements only `status` and `trigger`, and its
-    admission rejects a manifest naming a filter it does not implement, so the
-    shipped document declares those two. The creator filter keeps its schema
-    definition, and the cases below test that definition, so they build the
-    filter here rather than depending on what the document happens to ship.
-
-    Delete this helper and the calls to it when the deployment moves to a host
-    that implements the filter.
-    """
-    document["pages"]["list"]["filters"].append(
-        {
-            "id": "created_by",
-            "label": "Filter by creator",
-            "options": [
-                {"value": "all", "label": "Anyone"},
-                {"value": "me", "label": "Me"},
-                {"value": "others", "label": "Others"},
-            ],
-        }
-    )
-    return document
-
-
 def test_schema_is_a_valid_draft_2020_12_schema():
     jsonschema.Draft202012Validator.check_schema(SCHEMA)
 
@@ -130,15 +104,13 @@ def test_featured_automations_resolve_to_catalog_entries():
         ),
         (
             "a creator filter without the all option",
-            lambda doc: _filter(_with_creator_filter(doc), "created_by")[
-                "options"
-            ].pop(0),
+            lambda doc: _filter(doc, "created_by")["options"].pop(0),
         ),
         (
             "a creator filter value the host does not implement",
-            lambda doc: _filter(_with_creator_filter(doc), "created_by")[
-                "options"
-            ].append({"value": "team", "label": "My team"}),
+            lambda doc: _filter(doc, "created_by")["options"].append(
+                {"value": "team", "label": "My team"}
+            ),
         ),
         (
             "more filters than the host renders",

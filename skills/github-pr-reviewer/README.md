@@ -66,15 +66,50 @@ This skill is activated by:
   assertions, generated mockups, and reconstructed captures cannot substitute.
   Missing evidence yields a COMMENT review that names the gap, so no approval
   and no maintainer handoff
+- Ends each published review, fallback comment, and error comment with the LLM
+  profile and model of the conversation that wrote it:
+  `LLM profile: <profile> · Model: <model>`. The deterministic script appends
+  the footer, never the agent. With default agent publication, it updates only
+  a review whose hidden run marker names that conversation, so automations that
+  share a bot account cannot relabel each other's reviews. Opt-in worker
+  publication formats the claimed conversation's footer before its durable
+  publication intent is saved. The catalog worker records each review's
+  server-derived metadata or an explicit `unknown` fallback in its
+  automation-scoped KV store before updating the review; only that record,
+  never an agent-written footer, establishes
+  attribution. It keeps those values if the agent profile changes later; a
+  failed lookup is logged and never holds up the verdict or maintainer handoff.
+  Failed lookups and uncertain KV writes are reconciled against the saved
+  metadata; failure on one review does not prevent the worker from correcting
+  other owned reviews.
+  The first tuple, including an `unknown` fallback, is retained for that review.
+  If KV cannot establish or validate a tuple, the edit is skipped and logged.
+  The manual upload flow retries a failed lookup or edit on its next poll
 - Posts acknowledgement comments with AI disclosure
 - Configurable review tone and polling schedule
-- Optional human handoff after an exact-head approval. The scanner ranks the
+- Optional human handoff after an exact-head approval or a maintainer-decision
+  scope stop, only when a same-repository closing issue is successfully fetched
+  and labeled `priority:medium` or `priority:high`. The scanner ranks the
   configured maintainers by recent commits to changed paths, then by their open
   GitHub review-request count, and requests one without merging the PR. Use at
   least two repository collaborators so a maintainer can author a PR without
   leaving the handoff roster empty.
 
 ## Prerequisites
+
+The catalog worker starts each review conversation from the automation's
+agent profile, which the server resolves. Its footer reads the model back from
+that conversation, so a reused conversation reports the LLM it actually runs,
+and takes the LLM profile name from the agent profile while it is still at its
+launch revision (`unknown` once the profile has been edited since).
+For local ACP profiles, the model is the server's reported session model;
+without that metadata it is `unknown`, since the configured override and
+`acp-managed` placeholder do not establish which model produced the review.
+
+The manual upload flow reports `default` and the concrete model from the
+server settings it already uses to start the conversation. That label describes
+the settings source; it does not infer a named profile from the active-profile
+pointer.
 
 Set `GITHUB_PERSONAL_ACCESS_TOKEN` in OpenHands Settings -> Secrets. The token
 must be able to read the repositories and their contents, read issue events,
@@ -96,3 +131,70 @@ can instead use a configured label and re-apply it for another review.
 ## See Also
 
 - [SKILL.md](SKILL.md) - Full setup workflow reference
+
+## Opt-in worker publication
+
+Legacy agent publication is the default. With `structured_publication: true`,
+`worker.py` publishes the agent's JSON result, validating `head_sha`,
+`code_assessment` (`clean`, `material_findings`, `inconclusive`),
+`merge_readiness` (`ready`, `blocked`, `unknown`), summary, findings, and evidence.
+It chooses the event and footer. Only clean, ready results approve;
+clean self-reviews use COMMENT. Missing merge requirements are not code defects.
+**This mode puts findings in the body, not inline threads.**
+
+The publisher appends the claimed conversation's profile/model metadata before
+saving its publication intent. Receipt recovery uses that saved body, so a later
+profile edit cannot relabel the review. An unavailable metadata read is logged
+and leaves publication and handoff available.
+
+### Operator prerequisites
+
+Keep disabled until you verify these prerequisites; setup is not automatic.
+
+- Bundle `publication.py`. Run periodic scans alongside event intake. Both recover
+  finished conversations before selecting new work.
+- Set `REVIEW_COORDINATION_AUTOMATION_ID` to the same namespace for both automations,
+  plus `REVIEW_COORDINATION_API_KEY` (a user-authorized automation API key) and
+  `AUTOMATION_API_URL`. The API must support `automation_id` user auth, metadata
+  versions, create-if-absent, and writes conditional on the stored version. The
+  run's automation-scoped KV JWT (key-value storage token) is insufficient.
+  Unsupported APIs stop publication.
+- Set `review_read_token_secret` and `review_profile_read_only: true` only after
+  independently verifying profile/sandbox isolation. This flag **does not enforce
+  isolation**. Agents must have read-only GitHub access, no publisher/coordination
+  credentials, and no write-capable MCP tools. The separate read token needs
+  pull-request, repository-content, and linked-issue read access; the worker
+  also needs issue read access to check handoff priority. Never add the coordination key to
+  the agent profile.
+- Verify Agent Server exposes execution status and
+  `/api/conversations/{id}/agent_final_response` returning `response`. Only
+  `finished` results are used; no workspace-file transport is supported.
+- Set `scan_window: true` for the VM's rotating discovery window of ten unrequested
+  PRs. Explicit candidates bypass this window. Automatic maintainer handoff for
+  both approvals and scope stops requires a successfully fetched same-repository
+  closing issue labeled `priority:medium` or `priority:high`. Missing links,
+  missing priority labels, low/normal priorities, unresolved references, and PR
+  references do not qualify. One qualifying issue permits handoff even when
+  other references are low-priority or missing. Non-404 lookup errors propagate
+  without requesting a review. Existing manual review requests are unchanged.
+
+### Recovery and limits
+
+Time-limited locks (leases) coordinate work for each repository/PR/reviewer.
+The head, latest request and label events, and latest non-bot clarification
+identify a work version (generation) across triggers.
+
+Intent is recorded before POST. Lost responses/receipts trigger a search by
+exact marker, account, and head. **An empty search never
+permits retrying an uncertain POST.** Completed/rejected generations stay recorded.
+Missing/failed starts are held for inspection, including records left in
+`starting` after a crash. Inspect the recorded conversation ID and server status
+before repairing the record; do not blindly restart a possibly running agent.
+Invalid/stale results wait for new work. Handoff intent is retained: crashes during handoff require operator
+reconciliation. Inspect shared `review-work-*` records before manual repair.
+Never delete uncertain POST intents just because a review is not yet visible.
+
+Publication is **not guaranteed exactly once**. GitHub cannot reject a review POST
+based on an expired lease or require the head to remain unchanged. The worker pins
+`commit_id` and rechecks the head, but a push can still race the POST. JSON validation
+cannot prove that written evidence claims are true.
