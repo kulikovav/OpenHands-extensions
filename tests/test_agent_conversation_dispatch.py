@@ -87,7 +87,9 @@ def test_new_subject_uses_selected_profile_and_persists_mapping(monkeypatch, tmp
     remote_workspace.assert_called_once_with(
         host="http://agent", api_key="session", working_dir=str(tmp_path)
     )
-    assert request.workspace.working_dir == str(tmp_path)
+    assert request.workspace.working_dir == str(
+        tmp_path / "conversations" / result["conversation_id"]
+    )
     assert request.agent_profile_id == UUID("11111111-1111-4111-8111-111111111111")
     assert request.secrets == scoped_secrets
     workspace.get_secrets.assert_called_once_with(
