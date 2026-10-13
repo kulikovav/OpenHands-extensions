@@ -73,15 +73,16 @@ The upstream content is copied with these mechanical changes only:
   `$schema: https://agent-plugins.org/schemas/1.0.0/plugin.schema.json` and keeps only the
   fields that schema allows (`displayName`, `logo`, `category`, `tags`, `skills`, and
   `agents` were dropped; the `skills/` and `agents/` directories are discovered by
-  convention).
-- A `triggers` list was added to every `SKILL.md`. Without a trigger, the OpenHands SDK
-  treats a skill as always active, which would inject all three skill bodies into every
-  conversation.
+  convention). The description was trimmed to the content this copy ships, dropping
+  upstream references to take-the-wheel and FSD merge-ready flows that are not part of
+  the vendored files.
+- A `triggers` list was added to every `SKILL.md`. Each skill also sets
+  `disable-model-invocation`, so without a trigger a skill would never activate.
 - The `thermos` skill and both agent definitions describe delegation through the OpenHands
   task tool (`subagent_type`), which runs subagents synchronously, instead of Cursor's
   background `Task` calls.
-- Em dashes in Markdown and YAML content were replaced with plain hyphens, per the
-  [extensions repository punctuation style](../../AGENTS.md).
+- Em dashes and en dashes in Markdown and YAML content were replaced with plain hyphens,
+  per the [extensions repository punctuation style](../../AGENTS.md).
 
 `disable-model-invocation` frontmatter is preserved: the OpenHands SDK supports the field,
 and the skills activate through their keyword triggers.
