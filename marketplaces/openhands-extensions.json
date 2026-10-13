@@ -1049,6 +1049,21 @@
         "debugging",
         "workflow"
       ]
+    },
+    {
+      "name": "thermos",
+      "source": "./plugins/thermos",
+      "description": "Thermo-nuclear branch review: deep correctness and security audits plus harsh maintainability rubrics, with subagent orchestration. Bundles 3 review skills and 2 subagents.",
+      "category": "code-quality",
+      "keywords": [
+        "thermos",
+        "thermo-nuclear",
+        "code-review",
+        "deep-review",
+        "code-quality",
+        "security-review",
+        "subagents"
+      ]
     }
   ]
 }

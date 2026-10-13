@@ -100,7 +100,7 @@ The JS and Python versions are kept in lock-step by `release-please` and guarded
 ## Extensions Catalog
 
 <!-- BEGIN AUTO-GENERATED CATALOG -->
-This repository contains **2 marketplace(s)** with **86 extensions** (74 skills, 12 plugins).
+This repository contains **2 marketplace(s)** with **87 extensions** (74 skills, 13 plugins).
 
 ### large-codebase
 
@@ -119,7 +119,7 @@ OpenHands skills for interacting, improving, and refactoring large codebases
 
 Official skills and plugins for OpenHands — the open-source AI software engineer.
 
-**82 extensions** (72 skills, 10 plugins)
+**83 extensions** (72 skills, 11 plugins)
 
 | Name | Type | Description | Commands |
 |------|------|-------------|----------|
@@ -199,6 +199,7 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | swift-linux | skill | Install and configure Swift programming language on Debian Linux for server-side development. Use when building Swift... | — |
 | technical-writing | skill | Write and revise technical explanations in flowing, direct, conversational prose that stays concise without becoming ... | — |
 | theme-factory | skill | Toolkit for styling artifacts with a theme. These artifacts can be slides, docs, reportings, HTML landing pages, etc.... | — |
+| thermos | plugin | Thermo-nuclear branch review: deep correctness and security audits plus harsh maintainability rubrics, with subagent ... | — |
 | ticket-to-code-change | skill | Set up Linear ticket-to-code-change automations for GitHub, GitLab, and Bitbucket. | `/ticket-to-code-change:setup` |
 | upstream-fork-sync | skill | Keep a long-lived fork in sync with its upstream. Creates a cron automation that fetches upstream changes, rebases lo... | `/upstream-fork-sync:setup` |
 | use-jev | skill | Use Jev, a general classifier, for typed choices, scores, and yes/no probabilities in software. | — |
