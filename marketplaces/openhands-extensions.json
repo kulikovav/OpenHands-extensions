@@ -1064,6 +1064,21 @@
         "security-review",
         "subagents"
       ]
+    },
+    {
+      "name": "pstack",
+      "source": "./plugins/pstack",
+      "description": "Rigorous engineering skills and 24 one-rule principles: verify against real artifacts, fix root causes, review hard, and write less but better code. Bundles 25 workflow skills without the upstream subagent-orchestration layer.",
+      "category": "code-quality",
+      "keywords": [
+        "pstack",
+        "principles",
+        "workflow",
+        "agent-style",
+        "verification",
+        "code-review",
+        "unslop"
+      ]
     }
   ]
 }

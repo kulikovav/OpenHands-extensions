@@ -100,7 +100,7 @@ The JS and Python versions are kept in lock-step by `release-please` and guarded
 ## Extensions Catalog
 
 <!-- BEGIN AUTO-GENERATED CATALOG -->
-This repository contains **2 marketplace(s)** with **87 extensions** (74 skills, 13 plugins).
+This repository contains **2 marketplace(s)** with **88 extensions** (74 skills, 14 plugins).
 
 ### large-codebase
 
@@ -119,7 +119,7 @@ OpenHands skills for interacting, improving, and refactoring large codebases
 
 Official skills and plugins for OpenHands — the open-source AI software engineer.
 
-**83 extensions** (72 skills, 11 plugins)
+**84 extensions** (72 skills, 12 plugins)
 
 | Name | Type | Description | Commands |
 |------|------|-------------|----------|
@@ -185,6 +185,7 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | plain-english-content | skill | Write and edit clear, accessible prose in a plain English content style: active voice, front-loaded content, sentence... | — |
 | pr-review | plugin | Automated PR code review — analyzes diffs and posts inline review comments via the GitHub API. | — |
 | prd | skill | Generate a Product Requirements Document (PRD) for a new feature through an interactive clarifying-question workflow.... | `/prd` |
+| pstack | plugin | Rigorous engineering skills and 24 one-rule principles: verify against real artifacts, fix root causes, review hard, ... | — |
 | qa-changes | plugin | Validate pull request changes by actually running the code — setting up the environment, exercising changed behavior,... | — |
 | release-notes | plugin | Generate consistent, well-structured release notes from git history. Produces categorized changelog with breaking cha... | `/release-notes` |
 | research-brief | skill | Create a recurring automation that researches a topic using Tavily web search and publishes a structured brief to Not... | `/research-brief:setup` |

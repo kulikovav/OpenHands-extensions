@@ -1,0 +1,21 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "pstack",
+  "version": "0.15.25",
+  "description": "Rigorous engineering skills and 24 one-rule principles: verify against real artifacts, fix root causes, review hard, and write less but better code.",
+  "author": {
+    "name": "Lauren Tan"
+  },
+  "homepage": "https://github.com/cursor/plugins/tree/main/pstack",
+  "repository": "https://github.com/cursor/plugins",
+  "license": "MIT",
+  "keywords": [
+    "pstack",
+    "principles",
+    "workflow",
+    "agent-style",
+    "verification",
+    "code-review",
+    "unslop"
+  ]
+}
