@@ -100,7 +100,7 @@ The JS and Python versions are kept in lock-step by `release-please` and guarded
 ## Extensions Catalog
 
 <!-- BEGIN AUTO-GENERATED CATALOG -->
-This repository contains **2 marketplace(s)** with **88 extensions** (74 skills, 14 plugins).
+This repository contains **2 marketplace(s)** with **89 extensions** (75 skills, 14 plugins).
 
 ### large-codebase
 
@@ -119,7 +119,7 @@ OpenHands skills for interacting, improving, and refactoring large codebases
 
 Official skills and plugins for OpenHands — the open-source AI software engineer.
 
-**84 extensions** (72 skills, 12 plugins)
+**85 extensions** (73 skills, 12 plugins)
 
 | Name | Type | Description | Commands |
 |------|------|-------------|----------|
@@ -196,6 +196,7 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | skill-creator | skill | Guide for creating effective skills. This skill should be used when users want to create a new skill (or update an ex... | — |
 | slack-channel-monitor | skill | Create a cron automation that polls up to 10 Slack channels every minute and starts an OpenHands conversation when a ... | `/slack-monitor:poll` |
 | slack-standup-digest | skill | Create an automation that generates an async standup digest from Slack. Searches selected channels for messages since... | `/standup-digest:setup` |
+| software-factory | skill | Set up a GitHub software factory fast: ask only for the repositories and the ticket source (GitHub issues, Jira or Li... | `/software-factory` |
 | ssh | skill | Establish and manage SSH connections to remote machines, including key generation, configuration, and file transfers.... | — |
 | swift-linux | skill | Install and configure Swift programming language on Debian Linux for server-side development. Use when building Swift... | — |
 | technical-writing | skill | Write and revise technical explanations in flowing, direct, conversational prose that stays concise without becoming ... | — |
