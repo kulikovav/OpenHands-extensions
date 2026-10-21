@@ -2,9 +2,10 @@
 
 import json
 import os
+import sys
 import time
 from collections.abc import Callable
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
@@ -70,6 +71,23 @@ def _kv_request(key: str, method: str, value: dict | None = None) -> dict | None
             return None
         raise
     return body.get("value") if method == "GET" else body
+
+
+def _record_committed(key: str, expected: dict) -> bool:
+    """Whether the store holds the record a failed write meant to leave.
+
+    A write can time out after the server committed it. The record is the
+    source of truth, so a read after the timeout decides whether the delivery
+    may be treated as done. Only the stable identity fields are compared; a
+    backend may reserialize a float timestamp.
+    """
+    # ponytail: one read back; a write that commits after this read still fails
+    # the delivery. Upgrade path is a bounded poll with backoff.
+    record = _kv_request(key, "GET") or {}
+    return all(
+        record.get(name) == expected.get(name)
+        for name in ("subject", "conversation_id", "delivery", "head")
+    )
 
 
 class CloudConversations:
@@ -283,7 +301,34 @@ class AgentConversationDispatcher:
             error_retries += 1
         if error_retries:
             new_record["error_retries"] = error_retries
-        _kv_request(state_key, "PUT", new_record)
+        try:
+            _kv_request(state_key, "PUT", new_record)
+        except (TimeoutError, URLError, ConnectionError) as exc:
+            # A dropped connection can also occur after the server committed
+            # the write. An HTTPError is the request's answer and is not read
+            # back here.
+            if isinstance(exc, HTTPError):
+                raise
+            # The conversation is already running, so a committed record must
+            # keep the delivery, not fail the run.
+            try:
+                committed = _record_committed(state_key, new_record)
+            except Exception as read_exc:  # noqa: BLE001 - keep the write error
+                print(
+                    f"Could not verify the delivery record for {subject}: "
+                    f"{type(read_exc).__name__}: {read_exc}",
+                    file=sys.stderr,
+                    flush=True,
+                )
+                committed = False
+            if not committed:
+                raise
+            print(
+                f"Delivery record write failed but committed for {subject}: "
+                f"{type(exc).__name__}: {exc}",
+                file=sys.stderr,
+                flush=True,
+            )
         return {
             "disposition": disposition,
             "conversation_id": str(conversation_id),

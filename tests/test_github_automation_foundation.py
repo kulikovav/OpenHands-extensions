@@ -45,6 +45,26 @@ def test_pagination_rejects_a_non_list_response(monkeypatch):
         github_client.github_paginate("token", "/repos/owner/repo/issues")
 
 
+def test_repository_failure_logs_status_and_detail(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr("sys.argv", ["worker.py"])
+    (tmp_path / "config.json").write_text(json.dumps({"repos": ["owner/repo"]}))
+
+    class Automation:
+        def __init__(self, **kwargs):
+            pass
+
+        def run(self):
+            raise HTTPError("https://api.github.com", 403, "Forbidden", {}, None)
+
+    with pytest.raises(RuntimeError, match=r"HTTPError: HTTP Error 403"):
+        github_client.run_repositories(Automation)
+
+    output = capsys.readouterr().out
+    assert '"status": 403' in output
+    assert '"detail": "HTTP Error 403: Forbidden"' in output
+
+
 @pytest.mark.parametrize(
     "state,reason,expected",
     [

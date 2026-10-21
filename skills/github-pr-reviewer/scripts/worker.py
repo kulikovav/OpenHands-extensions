@@ -99,7 +99,7 @@ class ReviewIntake:
             try:
                 result = record["start"]()
             except Exception as exc:  # noqa: BLE001 - one PR must not block the scan
-                failures.append(record["number"])
+                failures.append((record["number"], exc))
                 print(
                     f"Failed to submit {record['repository']} PR "
                     f"#{record['number']}: {type(exc).__name__}: {exc}",
@@ -111,10 +111,12 @@ class ReviewIntake:
             if result["disposition"] in ("created", "retried"):
                 self._started += 1
         if failures:
+            first = failures[0][1]
             raise RuntimeError(
                 "Reviewer scan failed for PRs: "
-                + ", ".join(f"#{number}" for number in failures)
-            )
+                + ", ".join(f"#{number}" for number, _ in failures)
+                + f" ({type(first).__name__}: {first})"
+            ) from first
 
 
 
@@ -1350,7 +1352,7 @@ class PullRequestReviewer(GitHubRepository):
                 else:
                     self.intake.register(record)
             except Exception as exc:  # noqa: BLE001 - one PR must not block the scan
-                failures.append(candidate.get("number", "?"))
+                failures.append((candidate.get("number", "?"), exc))
                 print(
                     f"Failed to submit {self.repository} PR "
                     f"#{candidate.get('number', '?')}: "
@@ -1363,10 +1365,12 @@ class PullRequestReviewer(GitHubRepository):
             # drains the candidates it collected, bounded by the per-run maximum.
             self.intake.drain()
         if failures:
+            first = failures[0][1]
             raise RuntimeError(
                 "Reviewer scan failed for PRs: "
-                + ", ".join(f"#{number}" for number in failures)
-            )
+                + ", ".join(f"#{number}" for number, _ in failures)
+                + f" ({type(first).__name__}: {first})"
+            ) from first
 
     def latest_label_event(self, number):
         return workflow._latest_trigger_label_event(self.token, self.repository, number)

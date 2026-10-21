@@ -876,9 +876,12 @@ def test_reviewer_continues_after_one_submission_fails_then_reports_run_failure(
     )
     run.dispatcher.deliver = submit
 
-    with pytest.raises(RuntimeError, match="Reviewer scan failed for PRs: #1"):
+    with pytest.raises(
+        RuntimeError, match="Reviewer scan failed for PRs: #1"
+    ) as excinfo:
         run.run()
 
+    assert isinstance(excinfo.value.__cause__, RuntimeError)
     assert submit.call_count == 2
 
 

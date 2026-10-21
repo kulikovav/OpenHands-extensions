@@ -5,9 +5,10 @@ import json
 import os
 import re
 import subprocess
+import time
 from functools import cached_property
 from pathlib import Path
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qsl, quote, urlencode, urlsplit
 from urllib.request import Request, urlopen
 
@@ -352,6 +353,18 @@ class GitLabProject:
         return self.gl("PUT", f"/merge_requests/{number}", {"reviewer_ids": user_ids})
 
 
+# A transient GitLab failure can succeed on a retry. The conversation delivery
+# is keyed by the delivery and exact head, so a retry does not start a second
+# review.
+_TRANSIENT_RETRY_DELAYS = (1, 2)
+
+
+def _is_transient_gitlab_error(exc: Exception) -> bool:
+    if isinstance(exc, HTTPError):
+        return exc.code == 429 or exc.code >= 500
+    return isinstance(exc, (TimeoutError, URLError, ConnectionError))
+
+
 def run_projects(automation_type, conversation=None, dispatcher=None):
     parser = argparse.ArgumentParser(description=automation_type.__doc__)
     parser.add_argument("--gitlab-token-secret")
@@ -370,15 +383,39 @@ def run_projects(automation_type, conversation=None, dispatcher=None):
         )
         if dispatcher is not None:
             options["dispatcher"] = dispatcher
-        automation = automation_type(**options)
-        try:
-            automation.run()
-        except Exception as exc:  # noqa: BLE001 - one project must not block others
-            failures.append(project)
-            print(
-                json.dumps({"project": project, "error": type(exc).__name__}),
-                flush=True,
-            )
+        for attempt in range(len(_TRANSIENT_RETRY_DELAYS) + 1):
+            if attempt:
+                time.sleep(_TRANSIENT_RETRY_DELAYS[attempt - 1])
+            try:
+                automation = automation_type(**options)
+                automation.run()
+                break
+            except Exception as exc:  # noqa: BLE001 - one project must not block others
+                retrying = attempt < len(_TRANSIENT_RETRY_DELAYS) and (
+                    _is_transient_gitlab_error(exc)
+                )
+                print(
+                    json.dumps(
+                        {
+                            "project": project,
+                            "error": type(exc).__name__,
+                            "status": getattr(exc, "code", None),
+                            "detail": str(exc)[:500],
+                            "retrying": retrying,
+                        }
+                    ),
+                    flush=True,
+                )
+                if retrying:
+                    continue
+                failures.append((project, exc))
+                break
     if failures:
-        raise RuntimeError("Automation failed for: " + ", ".join(failures))
+        raise RuntimeError(
+            "Automation failed for: "
+            + ", ".join(
+                f"{project} ({type(exc).__name__}: {exc})"
+                for project, exc in failures
+            )
+        ) from failures[0][1]
     return str(conversation.id) if conversation else None

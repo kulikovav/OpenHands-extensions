@@ -1,6 +1,6 @@
 import json
 from unittest.mock import MagicMock
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
 from uuid import NAMESPACE_URL, UUID, uuid5
 
 import agent_conversation
@@ -106,6 +106,172 @@ def test_new_subject_uses_selected_profile_and_persists_mapping(monkeypatch, tmp
         # the dedupe keyed on `delivery` alone.
         "head": "",
     }
+
+
+@pytest.mark.parametrize(
+    "write_error",
+    [
+        TimeoutError("timed out"),
+        URLError(TimeoutError("timed out")),
+        ConnectionResetError("connection reset"),
+    ],
+)
+def test_delivery_record_write_error_after_commit_keeps_the_delivery(
+    monkeypatch, write_error
+):
+    """A write error that committed must not fail the delivery.
+
+    The conversation is already running, so a late delivery-record response is
+    bookkeeping. The record is read back and the delivery continues.
+    """
+    state = {}
+
+    def request(key, method, value=None):
+        if method == "GET":
+            return state.get(key)
+        state[key] = value
+        raise write_error
+
+    monkeypatch.setattr(agent_conversation, "_kv_request", request)
+    monkeypatch.setattr(agent_conversation, "_register_tools", lambda: None)
+    workspace = MagicMock()
+    workspace.__enter__.return_value = workspace
+    workspace.working_dir = "/runs/run-1"
+    workspace.get_secrets.return_value = {}
+    monkeypatch.setattr(
+        agent_conversation, "RemoteWorkspace", lambda **kwargs: workspace
+    )
+    missing = agent_conversation.httpx.HTTPStatusError(
+        "missing",
+        request=MagicMock(),
+        response=MagicMock(status_code=404),
+    )
+    monkeypatch.setattr(
+        agent_conversation.RemoteConversation, "attach", MagicMock(side_effect=missing)
+    )
+    conversation = MagicMock()
+    monkeypatch.setattr(
+        agent_conversation.RemoteConversation,
+        "create",
+        MagicMock(return_value=conversation),
+    )
+
+    with _dispatcher(monkeypatch) as dispatcher:
+        result = dispatcher.deliver("repo:pr:7", "revision-1", "work")
+
+    assert result["disposition"] == "created"
+    assert state[_state_key("repo:pr:7")] == {
+        "subject": "repo:pr:7",
+        "conversation_id": result["conversation_id"],
+        "delivery": "revision-1",
+        "head": "",
+    }
+
+
+def test_delivery_record_timeout_without_a_commit_still_fails(monkeypatch):
+    """A write that did not commit must surface its timeout to the caller."""
+
+    def request(key, method, value=None):
+        if method == "GET":
+            return None
+        raise TimeoutError("timed out")
+
+    monkeypatch.setattr(agent_conversation, "_kv_request", request)
+    monkeypatch.setattr(agent_conversation, "_register_tools", lambda: None)
+    workspace = MagicMock()
+    workspace.__enter__.return_value = workspace
+    workspace.working_dir = "/runs/run-1"
+    workspace.get_secrets.return_value = {}
+    monkeypatch.setattr(
+        agent_conversation, "RemoteWorkspace", lambda **kwargs: workspace
+    )
+    missing = agent_conversation.httpx.HTTPStatusError(
+        "missing",
+        request=MagicMock(),
+        response=MagicMock(status_code=404),
+    )
+    monkeypatch.setattr(
+        agent_conversation.RemoteConversation, "attach", MagicMock(side_effect=missing)
+    )
+    conversation = MagicMock()
+    monkeypatch.setattr(
+        agent_conversation.RemoteConversation,
+        "create",
+        MagicMock(return_value=conversation),
+    )
+
+    with pytest.raises(TimeoutError, match="timed out"):
+        with _dispatcher(monkeypatch) as dispatcher:
+            dispatcher.deliver("repo:pr:8", "revision-1", "work")
+
+
+def test_delivery_record_readback_failure_reports_the_write_error(monkeypatch):
+    """A failed read-back must not replace the original write error."""
+    put_done = False
+
+    def request(key, method, value=None):
+        nonlocal put_done
+        if method == "GET":
+            if not put_done:
+                return None
+            raise OSError("read failed")
+        put_done = True
+        raise TimeoutError("write timed out")
+
+    monkeypatch.setattr(agent_conversation, "_kv_request", request)
+    monkeypatch.setattr(agent_conversation, "_register_tools", lambda: None)
+    workspace = MagicMock()
+    workspace.__enter__.return_value = workspace
+    workspace.working_dir = "/runs/run-1"
+    workspace.get_secrets.return_value = {}
+    monkeypatch.setattr(
+        agent_conversation, "RemoteWorkspace", lambda **kwargs: workspace
+    )
+    missing = agent_conversation.httpx.HTTPStatusError(
+        "missing",
+        request=MagicMock(),
+        response=MagicMock(status_code=404),
+    )
+    monkeypatch.setattr(
+        agent_conversation.RemoteConversation, "attach", MagicMock(side_effect=missing)
+    )
+    conversation = MagicMock()
+    monkeypatch.setattr(
+        agent_conversation.RemoteConversation,
+        "create",
+        MagicMock(return_value=conversation),
+    )
+
+    with pytest.raises(TimeoutError, match="write timed out"):
+        with _dispatcher(monkeypatch) as dispatcher:
+            dispatcher.deliver("repo:pr:9", "revision-1", "work")
+
+
+def test_delivery_record_match_ignores_volatile_fields(monkeypatch):
+    """The read-back compares identity fields, not a reserialized timestamp."""
+    record = {
+        "subject": "repo:pr:9",
+        "conversation_id": "22222222-2222-4222-8222-222222222222",
+        "delivery": "revision-1",
+        "head": "head-1",
+        "started_at": 123.456,
+        "error_retries": 1,
+    }
+    monkeypatch.setattr(
+        agent_conversation, "_kv_request", lambda *args, **kwargs: record
+    )
+
+    assert agent_conversation._record_committed(
+        "key",
+        {
+            "subject": "repo:pr:9",
+            "conversation_id": "22222222-2222-4222-8222-222222222222",
+            "delivery": "revision-1",
+            "head": "head-1",
+            "started_at": 123.457,
+            "error_retries": 0,
+        },
+    )
 
 
 def test_each_conversation_gets_its_own_working_directory(monkeypatch):

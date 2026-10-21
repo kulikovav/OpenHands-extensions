@@ -388,15 +388,28 @@ def run_repositories(automation_type, conversation=None, dispatcher=None):
         )
         if dispatcher is not None:
             options["dispatcher"] = dispatcher
-        automation = automation_type(**options)
         try:
+            automation = automation_type(**options)
             automation.run()
         except Exception as exc:  # noqa: BLE001 - one repository must not block others
-            failures.append(repository)
+            failures.append((repository, exc))
             print(
-                json.dumps({"repository": repository, "error": type(exc).__name__}),
+                json.dumps(
+                    {
+                        "repository": repository,
+                        "error": type(exc).__name__,
+                        "status": getattr(exc, "code", None),
+                        "detail": str(exc)[:500],
+                    }
+                ),
                 flush=True,
             )
     if failures:
-        raise RuntimeError("Automation failed for: " + ", ".join(failures))
+        raise RuntimeError(
+            "Automation failed for: "
+            + ", ".join(
+                f"{repository} ({type(exc).__name__}: {exc})"
+                for repository, exc in failures
+            )
+        ) from failures[0][1]
     return str(conversation.id) if conversation else None
