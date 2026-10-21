@@ -182,9 +182,11 @@ def normalize_project(value: str) -> str:
     """Return ``group/project`` for the ways a project gets written down.
 
     A clone URL is what a project page offers to copy, so it is what ends up
-    pasted into a setup form. Left alone it becomes a percent-encoded URL in the
-    project path, which GitLab answers with a 404 - indistinguishable, from
-    here, from a project the token cannot see.
+    pasted into a setup form - with its scheme, or after something dropped the
+    scheme from the front. Left alone, a host becomes the first path segment and
+    every call requests a project literally named ``git.example.com/group/
+    project``, which GitLab answers with a 404 - indistinguishable, from here,
+    from a project the token cannot see.
 
     Subgroups are kept: ``group/team/service`` is a project path in its own
     right, and truncating it to the last two segments would point at a project
@@ -194,12 +196,17 @@ def normalize_project(value: str) -> str:
     which value it could not read instead of blaming the token.
     """
     project = value.strip()
+    host = urlsplit(GITLAB_API_URL).netloc
     if project.startswith("git@"):
         # git@gitlab.com:group/project.git
         project = project.partition(":")[2]
     elif "://" in project:
         # https://gitlab.com/group/project, and anything else with a host
         project = project.split("://", 1)[1].partition("/")[2]
+    elif host and project.lower().startswith(host.lower() + "/"):
+        # A scheme-less value keeps its host as the first segment. Only the
+        # configured host is stripped, so a dotted group name survives.
+        project = project[len(host) + 1 :]
     project = project.strip("/")
     if project.endswith(".git"):
         project = project[: -len(".git")]

@@ -120,6 +120,52 @@ def gitlab_paginate(
     raise RuntimeError("GitLab pagination exceeded limit")
 
 
+# group/project, with any number of subgroups in between, which is what every
+# GitLab API path is built from.
+_PROJECT_PATH_RE = re.compile(r"^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)+$")
+
+
+def normalize_project(value: str, host: str = "") -> str:
+    """Return ``group/project`` for the ways a project gets written down.
+
+    A clone URL is what a project page offers to copy, so it is what ends up
+    pasted into a setup form - with its scheme, or after a browser or terminal
+    dropped the scheme from the front. Left alone, a host becomes the first
+    path segment and every call requests a project literally named
+    ``git.example.com/group/project``, which GitLab answers with a 404. From
+    here that is indistinguishable from a project the token cannot see, so the
+    run blames the credential for a value it could have read.
+
+    ``host`` is the configured API host. Only that exact host is stripped from a
+    scheme-less value, so a group whose name merely contains dots survives.
+
+    Raises ValueError for anything that is not a project path, so the run names
+    the value it could not read instead of blaming the token.
+    """
+    project = value.strip()
+    if project.startswith("git@"):
+        # git@gitlab.com:group/project.git
+        project = project.partition(":")[2]
+    elif "://" in project:
+        # https://gitlab.com/group/project, and anything else with a scheme.
+        project = project.split("://", 1)[1].partition("/")[2]
+    elif host and project.lower().startswith(host.lower() + "/"):
+        project = project[len(host) + 1 :]
+    project = project.strip("/")
+    if project.endswith(".git"):
+        project = project[: -len(".git")]
+    # A URL copied from a page deeper in the project carries the separator
+    # GitLab puts before its own routes.
+    project = project.partition("/-/")[0]
+
+    if not _PROJECT_PATH_RE.match(project):
+        raise ValueError(
+            f"{value!r} is not a project. Use group/project, for example "
+            "gitlab-org/gitlab, with any subgroups in between."
+        )
+    return project
+
+
 def project_id(project: str) -> str:
     """The URL-encoded project path GitLab accepts wherever an ID is expected.
 
@@ -142,16 +188,19 @@ class GitLabProject:
         dispatcher=None,
     ):
         self.config = json.loads(Path(config_path).read_text())
-        self.project = project or self.config["project"]
-        # Subgroups are legal and common, so the path may carry them.
-        if not re.fullmatch(r"[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)+", self.project):
-            raise ValueError("project must be a namespace/project path")
+        self.api_url = self.config.get("gitlab_api_url") or DEFAULT_GITLAB_API_URL
+        # The catalog entrypoint runs worker.py, which reaches GitLab only
+        # through this class, so normalization belongs here rather than in one
+        # entrypoint. The configured API host is the host a pasted clone URL of
+        # this instance carries.
+        self.project = normalize_project(
+            project or self.config["project"], urlsplit(self.api_url).netloc
+        )
         if not re.fullmatch(r"[A-Z_][A-Z0-9_]*", gitlab_token_secret):
             raise ValueError(
                 "Expected the environment variable containing the GitLab token"
             )
         self.token_name = gitlab_token_secret
-        self.api_url = self.config.get("gitlab_api_url") or DEFAULT_GITLAB_API_URL
         try:
             self.token = _load_secret(gitlab_token_secret)
         except ValueError:

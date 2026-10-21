@@ -21,7 +21,6 @@ That marker names the exact head SHA, and the verdict line ends the note body.
 import io
 import json
 import os
-import re
 import shutil
 import sys
 import tarfile
@@ -30,10 +29,12 @@ import urllib.error
 import urllib.request
 from collections.abc import Callable
 from pathlib import Path, PurePosixPath
+from urllib.parse import urlsplit
 
 from gitlab_client import gitlab_request as _gitlab_request
 from gitlab_client import gitlab_paginate as _gitlab_paginate
 from gitlab_client import is_cloud_run, project_id as _project_id
+from gitlab_client import normalize_project as _normalize_project
 
 # Configuration. Two setup paths write it, and both end up here:
 #
@@ -151,42 +152,16 @@ def load_config(directory: Path | None = None) -> dict:
     return config
 
 
-# namespace/project, which is what every GitLab API path in this script is
-# built from. Subgroups are legal, so the path may carry more than one slash.
-_PROJECT_NAME_RE = re.compile(
-    r"^[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*$"
-)
-
-
+# The shared client owns normalization so this script and the catalog worker
+# cannot drift apart on what a pasted project value means.
 def normalize_project(value: str) -> str:
-    """Return ``group/project`` for the ways a project gets written down.
+    """Return ``group/project``, resolved against the configured API host.
 
-    A clone URL is what a project page offers to copy, so it is what ends up
-    pasted into a setup form. Left alone it becomes a request for a project
-    literally named ``https://gitlab.example.com/group/project``, which GitLab
-    answers with a 404 - indistinguishable, from here, from a project the
-    token cannot see.
-
-    Raises ValueError for anything that is not a project path, so the run says
-    which value it could not read instead of blaming the token.
+    The host has to come from the configuration rather than the value: only a
+    scheme-less value needs it, and only the configured instance's host is
+    stripped.
     """
-    project = value.strip()
-    if "://" in project:
-        # https://gitlab.example.com/group/project, and anything with a host.
-        project = project.split("://", 1)[1]
-        project = project.partition("/")[2] if "/" in project else ""
-    elif project.startswith("git@"):
-        project = project.partition(":")[2]
-    project = project.strip("/")
-    if project.endswith(".git"):
-        project = project[: -len(".git")]
-
-    if not project or not _PROJECT_NAME_RE.match(project) or "/" not in project:
-        raise ValueError(
-            f"{value!r} is not a project. Use the full path, for example "
-            "OpenHands/automation; subgroups are written as group/sub/project."
-        )
-    return project
+    return _normalize_project(value, urlsplit(GITLAB_API_URL).netloc)
 
 
 _CONFIG = load_config()

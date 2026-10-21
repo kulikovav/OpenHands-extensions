@@ -200,6 +200,24 @@ def test_a_subgroup_path_survives_normalization(main):
     assert main.normalize_project("group/team/service") == "group/team/service"
 
 
+def test_a_scheme_less_clone_url_drops_the_configured_host(main, monkeypatch):
+    """A browser or terminal can drop the scheme, leaving the host as the first
+    segment. Unstripped, every call asks for a project literally named
+    ``gitlab.example.com/group/project`` and GitLab answers 404."""
+    monkeypatch.setattr(main, "GITLAB_API_URL", "https://gitlab.example.com/api/v4")
+    assert (
+        main.normalize_project("gitlab.example.com/group/project")
+        == "group/project"
+    )
+
+
+def test_a_dotted_group_survives_a_host_strip(main, monkeypatch):
+    """Only the configured host is stripped, so a group whose name contains dots
+    is not mistaken for one."""
+    monkeypatch.setattr(main, "GITLAB_API_URL", "https://gitlab.example.com/api/v4")
+    assert main.normalize_project("my.dotted.group/proj") == "my.dotted.group/proj"
+
+
 # ── Project paths in API calls ────────────────────────────────────────────────
 
 

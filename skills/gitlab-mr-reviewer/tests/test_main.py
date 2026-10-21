@@ -615,6 +615,52 @@ class TestNormalizeProject(unittest.TestCase):
         with self.assertRaises(ValueError):
             main.normalize_project("project")
 
+    def test_a_scheme_less_clone_url_drops_the_configured_host(self):
+        """A browser or terminal can drop the scheme, leaving the host as the
+        first segment. Unstripped, every call asks for a project literally
+        named ``git.example.com/group/sub/project`` and GitLab answers 404."""
+        with patch.object(
+            main, "GITLAB_API_URL", "https://git.example.com/api/v4"
+        ):
+            self.assertEqual(
+                main.normalize_project("git.example.com/group/sub/project"),
+                "group/sub/project",
+            )
+
+    def test_a_dotted_group_survives_a_host_strip(self):
+        with patch.object(
+            main, "GITLAB_API_URL", "https://git.example.com/api/v4"
+        ):
+            self.assertEqual(
+                main.normalize_project("my.dotted.group/proj"), "my.dotted.group/proj"
+            )
+
+
+class TestGitLabProjectNormalizesTheConfiguredPath(unittest.TestCase):
+    """The catalog entrypoint runs worker.py, which reaches GitLab only through
+    GitLabProject. Normalizing in the standalone main() alone left the shipped
+    automation requesting a project named after its host, so every run failed."""
+
+    def test_the_configured_project_is_normalized_at_construction(self):
+        config = {
+            "projects": ["git.example.com/group/sub/project"],
+            "gitlab_api_url": "https://git.example.com/api/v4",
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            Path(tmp, "config.json").write_text(json.dumps(config))
+            with patch.dict(os.environ, {"WORKSPACE_BASE": tmp}), patch(
+                "gitlab_client._load_secret", return_value="token"
+            ):
+                reviewer = worker.MergeRequestReviewer(
+                    Path(tmp, "config.json"),
+                    gitlab_token_secret="GITLAB_TOKEN",
+                    project="git.example.com/group/sub/project",
+                )
+        self.assertEqual(reviewer.project, "group/sub/project")
+        self.assertEqual(
+            main._project_id(reviewer.project), "group%2Fsub%2Fproject"
+        )
+
 
 # ── Reading the resource label events ─────────────────────────────────────────
 
