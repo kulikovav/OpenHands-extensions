@@ -30,6 +30,14 @@ def _with(mutation):
     return document
 
 
+def _add_tag_filter(document):
+    """The fork omits the tag filter the deployed host cannot render; build one so
+    the schema keeps its coverage of that filter's contract."""
+    tag = {"id": "tag", "label": "Filter by tag", "allLabel": "All tags"}
+    document["pages"]["list"]["filters"].append(tag)
+    return tag
+
+
 def _filter(document, filter_id):
     return next(
         f for f in document["pages"]["list"]["filters"] if f["id"] == filter_id
@@ -113,9 +121,22 @@ def test_featured_automations_resolve_to_catalog_entries():
             ),
         ),
         (
+            "a tag filter declaring options, whose values come from the service",
+            lambda doc: _add_tag_filter(doc).update(
+                options=[{"value": "all", "label": "All tags"}]
+            ),
+        ),
+        (
+            "a tag filter without the default option's label",
+            lambda doc: _add_tag_filter(doc).pop("allLabel"),
+        ),
+        (
             "more filters than the host renders",
-            lambda doc: doc["pages"]["list"]["filters"].append(
-                {**doc["pages"]["list"]["filters"][0], "label": "Filter again"}
+            lambda doc: doc["pages"]["list"]["filters"].extend(
+                [
+                    {**doc["pages"]["list"]["filters"][0], "label": "Filter again"},
+                    {**doc["pages"]["list"]["filters"][1], "label": "Filter once more"},
+                ]
             ),
         ),
     ],
