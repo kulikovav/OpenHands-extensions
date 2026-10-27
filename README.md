@@ -100,7 +100,7 @@ The JS and Python versions are kept in lock-step by `release-please` and guarded
 ## Extensions Catalog
 
 <!-- BEGIN AUTO-GENERATED CATALOG -->
-This repository contains **2 marketplace(s)** with **89 extensions** (75 skills, 14 plugins).
+This repository contains **2 marketplace(s)** with **90 extensions** (76 skills, 14 plugins).
 
 ### large-codebase
 
@@ -119,7 +119,7 @@ OpenHands skills for interacting, improving, and refactoring large codebases
 
 Official skills and plugins for OpenHands — the open-source AI software engineer.
 
-**85 extensions** (73 skills, 12 plugins)
+**86 extensions** (74 skills, 12 plugins)
 
 | Name | Type | Description | Commands |
 |------|------|-------------|----------|
@@ -192,6 +192,7 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | runtime-api-configs | plugin | Manage warm sandbox pools on OpenHands Enterprise from a Python CLI: list, template, save, and delete warm runtime co... | — |
 | security | skill | Security best practices for secure coding, authentication, authorization, and data protection. Use when developing fe... | — |
 | security-audit | skill | Security guidance and vulnerability review for codebases, APIs, services, CLI tools, libraries, and daemons. Use for ... | — |
+| show-me | skill | Help the user understand the current topic visually with concise diagrams, code-shape sketches, and focused HTML arti... | — |
 | simplified-technical-english | skill | Write explanations and chat in the style of ASD-STE100 Simplified Technical English: short active sentences, one idea... | — |
 | skill-creator | skill | Guide for creating effective skills. This skill should be used when users want to create a new skill (or update an ex... | — |
 | slack-channel-monitor | skill | Create a cron automation that polls up to 10 Slack channels every minute and starts an OpenHands conversation when a ... | `/slack-monitor:poll` |
