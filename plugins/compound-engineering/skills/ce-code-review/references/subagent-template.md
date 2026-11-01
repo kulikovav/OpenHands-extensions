@@ -1,6 +1,6 @@
 # Sub-agent Prompt Template
 
-This template is used by the orchestrator to spawn each reviewer sub-agent. Variable substitution slots are filled at spawn time.
+This template is used by the orchestrator to spawn each reviewer sub-agent. Variable substitution slots are filled at spawn time. When the spawn prompt names this file instead of inlining it, the reviewer reads it and fills the slots itself: the files the prompt names supply `{persona_file}`, `{diff_scope_rules}`, and `{schema}`, and the prompt or the staged file it names supplies every other slot.
 
 ---
 
@@ -149,8 +149,10 @@ Rules:
 - Every finding in the full artifact file MUST include at least one evidence item grounded in the actual code. The compact return omits evidence -- the evidence requirement applies to the disk artifact only.
 - Set `pre_existing` to true ONLY for issues in unchanged code that are unrelated to this diff. If the diff makes the issue newly relevant, it is NOT pre-existing.
 - Budget: you have 20 minutes of wall clock and about 40 tool calls. When the budget runs out, stop inspecting, write the artifact with the findings you have grounded, name what you did not reach in `residual_risks`, and return; never guess a finding you did not inspect. The orchestrator waits on the artifact, so write it before you return.
+- Your context is this prompt, the files it and this template name, and the project under review. The parent session's transcript is not part of it.
 - You are operationally read-only. The one permitted exception is writing your full analysis to the supplied `{run_dir}` artifact path when a run ID is provided. You may also use non-mutating inspection commands, including read-oriented `git` / `gh` commands, to gather evidence. Do not edit project files, change branches, commit, push, create PRs, or otherwise mutate the checkout or repository state.
 - Set `autofix_class` and `owner` per `references/action-class-rubric.md`; if that file is not reachable from your working directory, the same `gated_auto` / `manual` / `advisory` and owner semantics are already in the schema above and this template's guidance. This skill does not apply fixes - classify for caller routing only.
+- When the review context carries a `<review-policy>` block, read the file it names before reviewing. It is this repository's instructions for review, applied as the Repository Review Policy section of `references/action-class-rubric.md` states: follow its added checks and evidence requirements, but grade severity on the default scale and still report a finding it excludes, because synthesis applies its severity, exclusions, and caps and counts what they change.
 - Default `owner` to `downstream-resolver` for actionable findings unless the item is genuinely human-only or release-owned.
 - Set `requires_verification` to true whenever the likely fix needs targeted tests, a focused re-review, or operational validation before it should be trusted.
 - **Propose a `suggested_fix` whenever any defensible code change is reachable from the diff and surrounding code.** This is the persona's commitment that "I, the reviewer with the diff and evidence in front of me, can articulate what the fix looks like." The suggested fix becomes the authoritative signal that the report and any calling agent use to decide whether the agent can act on the finding. Four rules:
@@ -187,7 +189,7 @@ Changed files: {file_list}
 Diff:
 {diff}
 
-(The `Changed files:` and `Diff:` values above are either inline content or, for a large staged review, a single file path each. Inline content is authoritative: review it as given. A lone file path is not the content - Read that file to get the full list/diff before reviewing.)
+(The `Changed files:` and `Diff:` values above are either inline content or, for a large staged review, a single file path each. Inline content is authoritative: review it as given. A lone file path is not the content - Read that file before reviewing. Read each part your review needs once, in reads that fit the read tool's limit; its `diff --git` lines mark where each file's section starts.)
 </review-context>
 ```
 
@@ -195,9 +197,9 @@ Diff:
 
 | Variable | Source | Description |
 |----------|--------|-------------|
-| `{persona_file}` | Agent markdown file content | The full persona definition (identity, failure modes, calibration, suppress conditions) |
-| `{diff_scope_rules}` | `references/diff-scope.md` content | Primary/secondary/pre-existing tier rules |
-| `{schema}` | `references/findings-schema.json` content | The JSON schema reviewers must conform to |
+| `{persona_file}` | Agent markdown file content, inlined or read by the reviewer from the path its prompt names | The full persona definition (identity, failure modes, calibration, suppress conditions) |
+| `{diff_scope_rules}` | `references/diff-scope.md` content, inlined or read by the reviewer | Primary/secondary/pre-existing tier rules |
+| `{schema}` | `references/findings-schema.json` content, inlined or read by the reviewer | The JSON schema reviewers must conform to |
 | `{intent_summary}` | Stage 2 output | 2-3 line description of what the change is trying to accomplish |
 | `{pr_metadata}` | Stage 1 output | PR title, body, and URL when reviewing a PR. Empty string when reviewing a branch or standalone checkout |
 | `{file_list}` | Stage 1 output | Changed-file list - inline, or a staged file path to Read for a large review |

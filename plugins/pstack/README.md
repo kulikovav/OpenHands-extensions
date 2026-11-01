@@ -7,8 +7,8 @@ Rigorous engineering skills for OpenHands agents: verification against real arti
 | Field               | Value                                                                    |
 | ------------------- | ------------------------------------------------------------------------ |
 | Upstream repository | [cursor/plugins](https://github.com/cursor/plugins) (`pstack`)           |
-| Upstream version    | 0.15.25                                                                  |
-| Upstream commit     | `850d7f2e9f5e55dff7eb00a0a479337fe79eb22f` (2026-10-14)                  |
+| Upstream version    | 0.15.36                                                                  |
+| Upstream commit     | `c742dd61706fbacc1b95f1a20b7b988cf096ce6c` (2026-10-27)                  |
 | License             | MIT, Copyright (c) 2026 Lauren Tan (see `LICENSE`)                       |
 | Vendored content    | `skills/` (49 skill directories: 25 workflow skills and 24 principles)   |
 
@@ -16,11 +16,15 @@ Report problems with the upstream content to the upstream repository. Report pro
 
 ## What is not vendored
 
-The upstream plugin centers on `poteto-mode`, a subagent orchestrator that routes work to `poteto-agent` and per-role models. This copy leaves that layer out:
+The upstream plugin centers on `poteto-mode`, a subagent orchestrator that routes work to `poteto-agent` and per-role models. This copy leaves out that layer, and the skills that need it or an external toolchain:
 
 - `poteto-mode` (the mode skill, its 23 playbooks, and its orchestration scripts).
 - `arena`, `swarm`, and `interrogate` (parallel attempts, worker fan-out, and multi-model review panels).
 - `setup-pstack` (per-role model routing through a Cursor always-applied rule).
+- `create-formal-verification-skill` and `maintain-formal-verification-skill` (TLA+ specs, and
+  the checks that keep a spec in sync with the code it covers).
+- `statechart` (chart plus TLA+ model of a user interface, and its 4 MB TypeScript corpus).
+- `ketchup-video` (a subtitled slide video of the `/ketchup` summary).
 - `agents/` (`poteto-agent` and `comment-sicko` subagent definitions).
 - `automations/benny`, `docs/guide`, and `assets/` (a dormant automation pack, the Cursor walkthrough, and the logo the 1.0.0 manifest no longer references).
 

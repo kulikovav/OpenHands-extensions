@@ -12,6 +12,7 @@ Before finalizing, check:
 - Every major decision is grounded in the origin document or research
 - Material claims about existing code and fixtures match repository evidence; unresolved prerequisites that prevent implementation are recorded as blockers. Planned additions need not exist yet.
 - Each implementation unit is concrete, dependency-ordered, and implementation-ready
+- When the work ships as several PRs, the PR grouping meets the three delivery conditions in Phase 3.3: one creator per shared artifact, safe after every merge and deploy, and parallel PRs that do not conflict. Each group's `Waits on:` line gives the kind of every wait and names any deployment that must be live first
 - If test-first proof, characterization coverage, smoke-first verification, or another execution direction was explicit or strongly implied, the relevant units carry it forward with a lightweight natural-language `Execution note`
 - Each feature-bearing unit has test scenarios for the behavior it builds (happy path, plus edge cases, error handling, or integration where the unit has them), right-sized to the unit's complexity, not padded or skimped
 - Test scenarios name specific inputs, actions, and expected outcomes without becoming test code
@@ -79,7 +80,7 @@ Write the unified plan artifact according to `references/plan-sections.md`.
 - If this is direct planning, create a complete unified plan in `<root>/plans/` with `product_contract_source: ce-plan-bootstrap`.
 - Set `artifact_contract: ce-unified-plan/v1` and `execution: code` for software implementation plans.
 - Do not set `artifact_contract: ce-unified-plan/v1` on universal-planning outputs, answer-seeking outputs, or approach-plans unless they include the full software implementation contract.
-- Do not write a launch prompt into the doc. The launch prompt is generated at handoff (Phase 5.4 menu - `/goal` copy-paste on Claude Code, `create_goal` on Codex) from the plan's current content, so it never goes stale; it points to Goal Capsule, Verification Contract, Definition of Done, and U-IDs rather than duplicating them.
+- Do not write a launch prompt into the doc. An executor reads the Goal Capsule, Verification Contract, Definition of Done, and U-IDs from the plan's current content, so a baked prompt would only duplicate them and go stale.
 
 **Session-settled decisions at plan-write.** A settled *planning* decision (a how-level choice made this session) is authored as a numbered, labeled Key Technical Decision carrying the annotation `(session-settled: user-directed - chosen over <alternative>: <one-line reason>)` (class per `references/settled-decisions.md`: `user-directed` or `user-approved`). A settled *product* decision already lives on its Product Contract Key Decision with `Governs R…` links - do **not** mirror it into a KTD; a KTD that makes the how-level choice instantiating it inherits the label and cites the governed R-IDs.
 
@@ -108,7 +109,7 @@ Interactive mode exists because on-demand deepening is a different situation for
 Determine the plan depth from the document:
 - **Lightweight** - small, bounded, low ambiguity, usually 2-4 implementation units
 - **Standard** - moderate complexity, some technical decisions, usually 3-6 units
-- **Deep** - cross-cutting, high-risk, or strategically important work, usually 4-8 units or phased delivery
+- **Deep** - cross-cutting, high-risk, or strategically important work, usually 4-8 units or delivered as several PRs
 
 Build a risk profile. Treat these as high-risk signals:
 - Authentication, authorization, or security-sensitive behavior

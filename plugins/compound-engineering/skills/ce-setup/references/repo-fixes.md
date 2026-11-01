@@ -11,6 +11,7 @@ When the bundled `scripts/check-health` is unavailable, perform these checks by 
 5. Check whether `.compound-engineering/config.local.yaml` exists and, if it does, whether `git check-ignore -q .compound-engineering/config.local.yaml` succeeds.
 6. Compare `.compound-engineering/config.example.yaml` with `references/config-template.yaml` when the template is readable; otherwise report that the example refresh must be done manually.
 7. Report a legacy Compound Codex tool map when `${CODEX_HOME:-$HOME/.codex}/AGENTS.md` contains a standalone `<!-- BEGIN COMPOUND CODEX TOOL MAP -->` line followed by a standalone `<!-- END COMPOUND CODEX TOOL MAP -->` line.
+8. Report the `node` row as available for cross-model peers when `node -p 'process.versions.node'` is 22.13 or newer and `command -v npx` succeeds; otherwise name which of the two is missing or too old.
 
 This file is read at two points: from Step 2 whenever the bundled health script is unavailable, for the inline equivalent above; and before any Phase 2 write, once Step 3 has decided that a writable checkout exists and which reported issues need remediation. Ask with the blocking question tool named in SKILL.md. Maintaining the generated example files is the work this phase does on its own - Step 5's refresh and its removal of the superseded `config.local.example.yaml`. Every change to a user-owned file is offered and applied only if the user approves.
 
@@ -118,3 +119,7 @@ Add a standing instruction so agents write reports and summaries to you with ce-
 Insert the text verbatim from `assets/noslop-directive.md` in this skill's directory; do not paraphrase it. Place it beside the compounding directive when that landed or already exists, otherwise where the compounding directive would go. Match the surrounding form. Preview the exact text and location, then append only on approval and leave the rest of the file untouched.
 
 Report all three outcomes in the Phase 3 summary under Fixed or Skipped.
+
+### Step 10: Offer Starting Drafts Of The Project's Review Docs
+
+Read `references/project-docs.md` from this skill's directory and follow it. It makes one offer to draft or update `CODING_STANDARDS.md`, `REVIEW.md`, and the agent-instructions lines and AI reviewer files that point to them, built from the repository's own review history, and writes nothing until the user approves the drafts.

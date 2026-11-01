@@ -11,8 +11,8 @@ plugin.
 | Field               | Value                                                                                           |
 | ------------------- | ----------------------------------------------------------------------------------------------- |
 | Upstream repository | [EveryInc/compound-engineering-plugin](https://github.com/EveryInc/compound-engineering-plugin) |
-| Upstream version    | 3.30.3                                                                                          |
-| Upstream commit     | `9af474a70e7f2a844338519ad9e92aafbd92d4fb` (2026-10-01)                                         |
+| Upstream version    | 3.34.0                                                                                          |
+| Upstream commit     | `f816d99557a9d81ede830bc1a9b2762974427758` (2026-11-01)                                         |
 | License             | MIT, Copyright (c) 2025 Every (see `LICENSE.txt`)                                               |
 | Vendored content    | `skills/` (36 skill directories)                                                                |
 
