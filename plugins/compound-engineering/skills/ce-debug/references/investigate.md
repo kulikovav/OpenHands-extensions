@@ -9,9 +9,9 @@ Parse the input and reach a clear problem statement.
 **If the input references an issue in a tracker or an error/alert monitor**, fetch it:
 
 - GitHub (`#123`, `org/repo#123`, a github.com or GitHub Enterprise issue URL): `gh issue view <number> --json title,body,comments,labels`. For URLs, pass the URL directly to `gh` (it targets whatever host it is configured for, GHE included).
-- Anything else (Linear, Jira, Sentry, or any tracker/monitor URL): fetch via available MCP tools or by fetching the URL content. Make sure the fetch returns the **full comment thread** and not just the opening description. The read below cannot recover comments the fetch never retrieved. If the fetch fails (auth, missing tool, non-public page), ask the user to paste the relevant issue content.
+- Anything else (Linear, Jira, Sentry, or any tracker/monitor URL): fetch via available MCP tools or by fetching the URL content. Make sure the fetch returns the title and the **full comment thread**, not just the opening description. The read below cannot recover comments the fetch never retrieved. If the fetch fails (auth, missing tool, non-public page), ask the user to paste the relevant issue content.
 
-**Record what you fetched as the issue of record.** SKILL.md's rule defines what counts as an issue of record and what a run without one does.
+**Record what you fetched as the issue of record, and state its title before Phase 1.** SKILL.md's rule defines what counts as an issue of record and what a run without one does.
 
 Read the **full thread**, not just the opening post. Read every comment, with particular attention to the latest. Comments frequently carry updated reproduction steps, narrowed scope, prior failed attempts, extra stack traces, or a pivot to a different suspected cause. Treating the opening description as the whole picture routinely sends the investigation the wrong way. Extract symptoms, expected behavior, reproduction steps, and environment details from the combined thread.
 
@@ -31,10 +31,10 @@ Confirm the bug exists and understand its behavior. Run the test, trigger the er
 
 **Reproduction is complete when you hold a named, repeatable check that fails on this bug now and will pass once it is fixed.** The check can be a test invocation, a script, a curl, or a CLI run. You must have run it at least once and seen it fail on the user's exact symptom, not merely error somewhere nearby. That check is the instrument for everything downstream: Phase 2 tests hypotheses against it, and Phase 3 verifies the fix by re-running it. "I read the code and see the problem" is not reproduction. If no such check can be built here, that is the cannot-reproduce path below. Document what was tried and what is missing, and ask the user for the environment, a captured artifact, or the go-ahead to proceed on observation alone. It is never license to start hypothesizing as though reproduction had succeeded.
 
-- **Performance symptoms** (slow, latency or throughput regression, timeout): read the Performance Regressions section of `references/investigation-techniques.md` before tracing. For these bugs the reproduction check is a numeric baseline measurement. Code reading substitutes for neither that measurement nor the re-measurement that verifies a fix.
+- **Performance symptoms** (slow, latency or throughput regression, timeout): the reproduction check is a numeric baseline measurement, such as a timing harness, a profiler run, or a query plan. Before choosing what to optimize, find where the time actually goes with a profile or per-stage timings. Code reading substitutes for none of these, nor for the re-measurement that verifies a fix. A measurement explains the slowness or supports a fix claim only when it names what bounds the number: the limit that sets it, such as CPU, disk, a lock, a connection pool, a network round trip, a rate limit, or the measuring setup itself. With no named bound, report the claim as inconclusive. An inconclusive explanation is a gap in the causal chain, and an inconclusive fix claim does not count as verified.
 - **Browser bugs:** prefer `agent-browser` if installed; otherwise use whatever works (MCP browser tools, direct URL testing, screenshots).
 - **Manual setup required:** if reproduction needs conditions the agent cannot create alone (data states, user roles, external services, env config), document the exact setup steps and guide the user through them.
-- **Does not reproduce after 2-3 attempts:** read `references/investigation-techniques.md` for intermittent-bug techniques.
+- **Does not reproduce after 2-3 attempts:** run the scenario repeatedly to get a failure rate, then compare passing and failing runs one variable at a time (input data, test order, parallelism, environment) until you find the difference that decides the outcome.
 - **Cannot reproduce at all here:** document what was tried and which conditions appear to be missing.
 
 **Choosing the regression test** is SKILL.md's rule, including its precondition that the test is for a confirmed defect. Apply it from there; do not restate it here.
@@ -60,7 +60,7 @@ Trace data flow **backward from the symptom to where valid state first became in
 As you trace:
 
 - Check recent changes in files you read: `git log --oneline -10 -- [file]`.
-- If the bug looks like a regression ("it worked before"), use `git bisect` (see `references/investigation-techniques.md`).
+- If the bug looks like a regression ("it worked before"), use `git bisect` with the reproduction check as the test, rather than reading diffs for something that looks wrong.
 - Check whatever observability the project has - error trackers (Sentry, AppSignal, Datadog, BetterStack, Bugsnag), application logs, browser console, database state.
 
 #### 1.4 Check the tracker and PR history for prior work
@@ -83,7 +83,7 @@ This step reads prior work; it never establishes a new home for the bug. If Phas
 
 ### Phase 2: Root Cause
 
-Read `references/anti-patterns.md` before forming hypotheses. Watch for its rationalizations while you work. Stop and re-examine if the internal monologue contains "Quick fix for now, investigate later", "This should work" (without a tested prediction), or "Let me just try..." (without a hypothesis). Those phrases mark drift toward symptom patches, not progress on the root cause.
+Stop and re-examine if your reasoning contains "Quick fix for now, investigate later", "This should work" (without a tested prediction), or "Let me just try..." (without a hypothesis). Those phrases mark drift toward symptom patches, not progress on the root cause.
 
 **Assumption audit (before hypothesis formation):** list the concrete "this must be true" beliefs your understanding depends on. Examples: the framework behaves as expected here, this function returns what its name implies, the config loads before this runs, the caller passes a non-null value, the database is in the state the test implies. Mark each *verified* (you read the code, checked state, or ran it) or *assumed*. Many "wrong hypotheses" are correct hypotheses tested against a wrong assumption.
 
@@ -92,7 +92,7 @@ Read `references/anti-patterns.md` before forming hypotheses. Watch for its rati
 - What is wrong and where (file:line).
 - **At least one concrete observation that supports it.** That can be a runtime value, a log line, an instrumented boundary capture, a behavior delta against a working comparison case, or a specific code reference. "X seems off" is not evidence; "X equals null at line 42 because Y was never initialized in the constructor path that runs under condition Z" is. Ungrounded hypotheses are theorizing. Go back to Phase 1 and instrument.
 - The causal chain from trigger to symptom, step by step.
-- **For uncertain links:** a prediction, meaning something in a different code path or scenario that must also be true if the link is correct.
+- **For uncertain links:** a prediction, meaning something in a different code path or scenario that must also be true if the link is correct. A prediction that only restates the hypothesis cannot fail, so it tests nothing; it must name something you have not looked at yet.
 
 Before forming a new hypothesis, review what has already been ruled out and why.
 

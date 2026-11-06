@@ -17,7 +17,7 @@ The script reports in two tiers and you decide each item. A **FLAG** is a claim 
 
 | Flag | Likely meaning | Resolution |
 |------|----------------|------------|
-| path not found anywhere | Typo, or drafted from memory | Fix the citation or remove the claim |
+| path not found under the search base | Typo, drafted from memory, or a real file in a repo or store the check did not search | Keep the citation if the file exists in another repo or store you can check; otherwise fix the citation or remove the claim |
 | path missing here, exists at upstream | Stale checkout | Verify the claim against upstream; annotate if the doc implies the file is present locally |
 | path deliberately gone (doc says removed/renamed) | Historical citation | Confirm the surrounding prose marks it as historical ("removed by this fix", "pre-fix state"); add that marker if absent |
 | SHA does not resolve, cited as a commit | Fabricated or from another repo | Replace with the PR number, or drop |
@@ -34,7 +34,11 @@ After any body edit from this step or Step 2, re-run the script until it reports
 
 ## Step 2: Semantic validator subagent (Full and non-interactive; skipped in lightweight)
 
-Dispatch **one generic read-only subagent** covering the written solution doc plus any `CONCEPTS.md` entries added or edited this run. Phase 2.4's entries are claims too; a glossary entry written from a session-level summary is exactly how wrong semantics enter the vocabulary. Use the same mid-tier model class as other reviewer subagents when the platform exposes one. Build its prompt from this template:
+Dispatch **one generic read-only subagent** covering the written solution doc plus any `CONCEPTS.md` entries added or edited this run. Phase 2.4's entries are claims too; a glossary entry written from a session-level summary is exactly how wrong semantics enter the vocabulary. Use the same mid-tier model class as other reviewer subagents when the platform exposes one.
+
+If the user's or project's active instructions or the live prompt name a model for this subagent, use that model instead of the default tier above. They can name it by the subagent's tier, by its prompt-asset name, or for the subagents being dispatched. Without such an instruction, a model configured for this subagent's role takes precedence over the default tier.
+
+Build its prompt from this template:
 
 ```
 You are a grounding validator for documentation about to enter a permanent

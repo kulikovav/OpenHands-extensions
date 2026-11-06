@@ -58,6 +58,23 @@ Avoid:
 
 Each unit carries a stable plan-local **U-ID** assigned in Phase 3.5 (`U1`, `U2`, …). U-IDs survive reordering, splitting, and deletion: new units take the next unused number, gaps are fine, and existing IDs are never renumbered. This lets `ce-work` reference units unambiguously across plan edits.
 
+**Delivery shape.** Decide whether the work ships as one pull request or several, and state it in the Goal Capsule's execution profile. One PR is the default. Each extra PR costs another round of CI and review, another rebase, and often a wait while the earlier PR merges. Split only where the boundary buys something worth that cost:
+
+- the project's instructions or configuration require a part to ship as its own PR or to be approved by an approver the rest does not need, such as a code-owner approver for one directory or a rule that migrations land alone. A practice the project does not state does not count;
+- the project's instructions or configuration require a person to review each PR, and one PR would be too large for that person to review well. The requirement must be stated, but a size limit need not be: judge the size by what one careful reviewer can read well in one sitting. Agent review reads the same total diff however it is split, so when no person must review, size does not justify a boundary;
+- a part must reach production before the rest is ready, such as an urgent fix inside larger work;
+- a later part cannot merge until an earlier part is deployed, has migrated production data, or has run in production for a set time.
+
+Parts that carry different risk, that are separate units, or that must merge in a certain order are not reasons to split on their own. Neither is being able to roll a part back separately: an agent can fix forward or revert and re-land a combined PR at little cost, and splitting for rollback alone multiplies PRs. A part that waits on a person's decision, sign-off, or authorization is not a reason either: record that wait in Open Questions as a gate on merging, and keep the work in one PR. A part blocked by something that will not clear during this work, such as a vendor or a credential nobody has yet, is not ready to build; list it under `### Deferred to Follow-Up Work` instead of giving it its own PR. Work that only checks or measures the change, such as a test harness or a benchmark, ships in the PR whose change it checks, unless it is a deliverable in its own right. A check that can run only after that change is in production cannot finish inside that PR; it ships with the work that waits on its result. If later units depend on a result from earlier units, such as a measurement, put the earlier units first in the same PR. Do not give them their own PR for that reason.
+
+When it ships as several, each PR is a group of whole units: group the units in Implementation Units under one heading per PR, and follow each heading with a `Waits on:` line. Under each heading except the first, add one sentence naming which reason above keeps that group a separate PR. If no reason applies, merge the group into a group it waits on, or into the first group if it waits on nothing. Do not make work wait on a gate it does not need: a group held for an approver or a production step that the other groups do not need goes after them, unless another group needs what it produces. A wait that is merge order only is allowed in a valid split; it just cannot be the split's reason. The `Waits on:` line names each PR the group waits on and the kind of wait: merge order only, or needed before this group can start because its build or verification uses what that PR's merge or deployment produces. Executors build groups ahead of merges, so a wait marked merge order lets the waiting group be built before the earlier PR merges. Units keep their `U<N>.` headings inside the group. Do not add a second grouping, such as a PR table, that divides the units differently. The grouping must meet three conditions:
+
+- **One creator per shared artifact.** A type, table, migration, route, or config key that several units use is created by exactly one unit. Every unit that uses it is in the creator's PR or in a PR that waits on the creator's PR.
+- **Safe after every merge.** Merging the PRs in dependency order leaves the default branch shippable and safe after each merge. No capability is reachable on the default branch, by users or agents, before the guard that limits it, such as a permission check, a spending limit, or an audit record. This holds when the guard ships in a later PR and when it is deferred out of scope: until the guard exists, restrict the capability to the callers that guard would not limit. Infrastructure that only deferred work uses waits for that work instead of shipping inside the Definition of Done. The same holds after each deploy: when a PR is unsafe to merge until an earlier PR is deployed, such as a separately deployed service that calls a change the earlier PR makes live, its `Waits on:` line names that deployment. A deploy dependency gates the merge, not the start, unless the group's build or verification needs the deployed state.
+- **Parallel PRs do not conflict.** PRs that do not wait on each other can merge in either order without a merge conflict.
+
+How the project branches, stacks PRs, numbers migrations, or gates merges comes from its own instructions. Cite those instead of restating them in the plan.
+
 #### 3.4 High-Level Technical Design
 
 When the plan's technical approach has shape that prose alone doesn't carry well - architecture across components, sequencing across processes, state machines, branching gates, lifecycles, quantitative comparisons - include a High-Level Technical Design section that conveys the shape. The exact form (component diagram, sequence, swim lane, flowchart, state machine, decision matrix, pseudo-code grammar, bar chart for sizing concerns) is the agent's call per artifact - pick what makes the content land fastest for the reader.
@@ -104,7 +121,7 @@ For each unit, include:
   - **Integration scenarios** (when the unit crosses layers) - behaviors that mocks alone will not prove, e.g., "creating X triggers callback Y which persists Z". Include these for any unit touching callbacks, middleware, or multi-layer interactions
 - **Verification** - how an implementer should know the unit is complete, expressed as outcomes rather than shell command scripts
 
-Every feature-bearing unit should include the test file path in `**Files:**`.
+Every feature-bearing unit should include the test file path in `**Files:**`. When the plan names where a test should live, say in one line what that seam catches and what it misses.
 
 Use `Execution note` sparingly. Good uses include:
 - `Execution note: Start with a failing integration test for the request/response contract.`
@@ -164,7 +181,7 @@ Use one planning philosophy across all depths. Change the amount of detail, not 
 **Deep**
 - Use the full core template plus optional analysis sections where warranted
 - Usually 4-8 implementation units
-- Group units into phases when that improves clarity
+- Group units into phases when that improves clarity. When the work ships as several PRs, the groups are the PRs (3.3)
 - Include alternatives considered, documentation impacts, and deeper risk treatment when warranted
 
 #### 4.1b Optional Deep Plan Extensions
@@ -174,7 +191,7 @@ For sufficiently large, risky, or cross-cutting work, add the sections that genu
 - **Success Metrics** - operational instrumentation for the deep-plan tier: dashboards, error budgets, alert thresholds, and rollout telemetry. A threshold that *is* the product outcome (p95 latency, delivery rate, adoption) belongs to the Product Contract's `### Success Criteria` and never appears here as well; Success Metrics covers only what Success Criteria does not already state. When only one applies, it is almost always Success Criteria.
 - **Dependencies / Prerequisites**
 - **Risk Analysis & Mitigation**
-- **Phased Delivery**
+- **Phased Delivery** - rollout after merge, such as feature flags or staged enablement. The PR split lives in Implementation Units (3.3)
 - **Documentation Plan**
 - **Operational / Rollout Notes**
 - **Future Considerations** only when they materially affect current design
@@ -197,7 +214,7 @@ Omit "include when material" sections that don't carry information for this spec
 #### 4.3 Planning Rules
 
 - **Horizontal rules (`---`) between top-level sections** in Standard and Deep plans, mirroring the `ce-brainstorm` requirements doc convention. Improves scannability of dense plans where many H2 sections sit close together. Omit for Lightweight plans where the whole doc fits on a single screen.
-- **All file paths must be repo-relative** - never use absolute paths like `/Users/name/Code/project/src/file.ts`. Use `src/file.ts` instead. Absolute paths make plans non-portable across machines, worktrees, and teammates. When a plan targets a different repo than the document's home, state the target repo once at the top of the plan (e.g., `**Target repo:** my-other-project`) and use repo-relative paths throughout
+- **File paths follow `references/output-mode.md`.** When a plan targets a different repo than the document's home, state the target repo once at the top (e.g., `**Target repo:** my-other-project`) and make repository file references relative to that target.
 - Prefer path plus class/component/pattern references over brittle line numbers
 - Do not include implementation code - no imports, exact method signatures, or framework-specific syntax
 - Pseudo-code sketches and DSL grammars are allowed in the High-Level Technical Design section and per-unit technical design fields when they communicate design direction. Frame them explicitly as directional guidance, not implementation specification

@@ -511,6 +511,10 @@ function parseAnnotation(raw, options) {
   const screen = screenForPage(options, body.page)
   if (!screen) return null
   const textSnippet = typeof body.textSnippet === "string" ? body.textSnippet : null
+  const variant =
+    Array.isArray(body.variant) && body.variant.length > 0 && body.variant.every((name) => typeof name === "string")
+      ? body.variant
+      : null
   const plainObject = (value) => (value && typeof value === "object" && !Array.isArray(value) ? value : null)
   const rect = plainObject(body.rect)
   const point = plainObject(body.point)
@@ -520,6 +524,7 @@ function parseAnnotation(raw, options) {
     comment,
     selector,
     textSnippet,
+    variant,
     rect,
     point,
   }
@@ -756,7 +761,7 @@ async function serve(options) {
     return { status: "session-ended", ...(sessionEndReason ? { reason: sessionEndReason } : {}) }
   }
 
-  // reason: user-ended | tab-closed | idle | owner-exited | stopped
+  // reason: user-ended | connection-lost | idle | owner-exited | stopped
   function endSession(reason) {
     if (sessionEnded) return
     sessionEnded = true
@@ -971,7 +976,7 @@ async function serve(options) {
     if (pendingDocuments.size > 0 || sessionEnded) return
     if (sseGraceTimer) clearTimeout(sseGraceTimer)
     sseGraceTimer = setTimeout(() => {
-      if (sseClients.size === 0 && pendingDocuments.size === 0) endSession("tab-closed")
+      if (sseClients.size === 0 && pendingDocuments.size === 0) endSession("connection-lost")
     }, SSE_GRACE_MS)
     sseGraceTimer.unref()
   }

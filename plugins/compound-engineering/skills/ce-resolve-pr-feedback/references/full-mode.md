@@ -171,6 +171,8 @@ Ordinary and pipeline execution publish the commit before the remote tail:
 git push
 ```
 
+Read the PR's state immediately before pushing. If it is no longer open, a merge or close happened while this batch ran: do not push, and report the fix as an unpublished local commit along with the items left unaddressed.
+
 ## 7. Reply and Resolve
 
 Enter the remote tail only when the batch's fix commit is published, or the batch created no code changes. Return-to-caller batches with a fix stop at step 6; their saved reply-only and human-list items remain deferred too. No-change return-to-caller batches use this existing protocol and save observed progress even when a write fails. Resume enters here only through the publication and reconciliation conditions in [references/resume.md](resume.md), uses the saved verdicts and exact reply bodies, and returns there after completing or stopping the remote tail. Apply eligible PR checklist ticks under the entrypoint's publication condition.
@@ -297,9 +299,10 @@ Fixed (count): [brief description of each fix]
 Fixed differently (count): [what was changed and why the approach differed]
 Replied (count): [what questions were answered]
 Not addressing (count): [what was skipped and the evidence]
-Declined (count): [what was declined and the harm cited]
+Declined (count): [what was declined and the harm or scope reason cited; name out-of-scope items separately so the user can carry them forward]
 
 Validation: [one line -- e.g., "bun test passed (893/893)" or "bun test passed with pre-existing failure in X noted"; omit when no code changes were committed]
+Diff change: [`git diff --shortstat` from the head before this run's first fix commit to the head after its last, e.g., "+42 / -7 across 3 files"; omit when no code changes were committed]
 ```
 
 If any item is `needs-human`, append a decisions section. These are rare but high-signal. Each carries the `needs-human` object composed in step 3: quoted feedback, investigation, the reason autonomous action is unsafe or ambiguous, concrete options with tradeoffs, a recommendation if any, and links to every still-open thread it covers.
