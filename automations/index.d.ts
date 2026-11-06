@@ -20,6 +20,11 @@ export interface RecommendedAutomation {
     | "activity"
     | "timer";
   description: string;
+  /**
+   * Mermaid source for a small diagram of what the automation does. The host
+   * draws it beside `description` on the setup screen.
+   */
+  diagram?: string;
   requires: AutomationPrerequisites;
   popularityRank: number;
   estimatedSetupMinutes: number;
@@ -87,7 +92,11 @@ export type AutomationFieldType =
   | "event-type"
   | "plugin-sources"
   | "tarball-upload";
-export type AutomationGitProvider = "github" | "gitlab" | "bitbucket";
+export type AutomationGitProvider =
+  | "github"
+  | "gitlab"
+  | "bitbucket"
+  | "bitbucket_data_center";
 export type AutomationTriggerKind = "cron" | "event";
 
 export interface AutomationFieldOption {
@@ -136,7 +145,27 @@ export interface AutomationPrerequisites {
   integrations: Record<string, AutomationIntegrationRequirement>;
   /** Deployment capabilities this automation cannot run without. */
   features?: string[];
+  /**
+   * Integrations built into an OpenHands Cloud or Enterprise instance
+   * (Settings > Integrations) that this automation cannot run without. A user
+   * cannot connect one from the card, so a host that knows the instance's
+   * built-in integrations can rank the entry below the others, or hide it,
+   * where one is missing, and a host without built-in integrations never
+   * offers it.
+   */
+  builtInIntegrations?: AutomationBuiltInIntegration[];
 }
+
+export type AutomationBuiltInIntegration =
+  | "github"
+  | "gitlab"
+  | "bitbucket"
+  | "bitbucket_data_center"
+  | "azure_devops"
+  | "jira"
+  | "jira_dc"
+  | "linear"
+  | "slack";
 
 /** The inputs that decide when the automation runs, keyed by trigger kind. */
 export type AutomationTriggerForm = Partial<
@@ -256,6 +285,8 @@ export interface AutomationInterfaceRoutes {
   detail: string;
   /** The templates sub-page. Static: there is no parameter to substitute. */
   templates: string;
+  /** The event sources sub-page. */
+  events?: string;
 }
 
 /** An icon name from the host's closed icon map. */
@@ -268,7 +299,7 @@ export type AutomationIconSlug =
   | "timer";
 
 /** The pages a sub-page navigation item may point at. */
-export type AutomationSubPageId = "list" | "templates";
+export type AutomationSubPageId = "list" | "events" | "templates";
 
 export interface AutomationSubPageNavItem {
   /** The `pages` entry this item navigates to; its route comes from `routes`. */
@@ -410,6 +441,7 @@ export interface AutomationInterfacePages {
   detail: { backLabel: string };
   edit: { title: string };
   templates: AutomationTemplatesPage;
+  events?: { title: string; description: string };
 }
 
 export type AutomationAttributeType =
@@ -487,6 +519,8 @@ export interface AutomationInterfaceEndpoints {
   uploads: string;
   /** The org's automation tags with counts, which fill the tag filter. */
   tags?: string;
+  /** The custom webhook source collection. */
+  webhooks?: string;
 }
 
 export interface AutomationInterfaceManifest {

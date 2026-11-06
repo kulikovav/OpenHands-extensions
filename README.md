@@ -100,7 +100,7 @@ The JS and Python versions are kept in lock-step by `release-please` and guarded
 ## Extensions Catalog
 
 <!-- BEGIN AUTO-GENERATED CATALOG -->
-This repository contains **2 marketplace(s)** with **90 extensions** (76 skills, 14 plugins).
+This repository contains **2 marketplace(s)** with **82 extensions** (71 skills, 11 plugins).
 
 ### large-codebase
 
@@ -119,7 +119,7 @@ OpenHands skills for interacting, improving, and refactoring large codebases
 
 Official skills and plugins for OpenHands — the open-source AI software engineer.
 
-**86 extensions** (74 skills, 12 plugins)
+**78 extensions** (69 skills, 9 plugins)
 
 | Name | Type | Description | Commands |
 |------|------|-------------|----------|
@@ -136,7 +136,8 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | city-weather | plugin | Get current weather, time, and precipitation forecast for any city using the free Open-Meteo API. Provides slash comm... | — |
 | code-review | skill | Rigorous code review focusing on data structures, simplicity, security, pragmatism, and risk/safety evaluation. Provi... | `/codereview`, `/codereview-roasted` |
 | code-simplifier | skill | Simplifies and refines code across three dimensions - code reuse, code quality, and efficiency - while preserving all... | `/simplify` |
-| compound-engineering | plugin | Brainstorm, plan, build, review, and compound learnings with AI agents. Bundles 36 skills for planning, code review, ... | — |
+| comment-cleanup | skill | Remove comments that restate adjacent code, delete comments that narrate removed functionality or past PRs, and conde... | — |
+| cortex-training-rl | skill | Run reinforcement-learning post-training of a model inside the OpenHands harness on Snowflake Cortex Training for any... | `/cortex-training-rl` |
 | datadog | skill | Query and analyze Datadog logs, metrics, APM traces, and monitors using the Datadog API. Use when debugging productio... | — |
 | deno | skill | Common project operations using Deno (tasks, run/test/lint/fmt, and dependency management). | — |
 | discord | skill | Build and automate Discord integrations (bots, webhooks, slash commands, and REST API workflows). Use when the user m... | — |
@@ -147,6 +148,7 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | github | skill | Interact with GitHub repositories, pull requests, issues, and workflows using the GITHUB_TOKEN environment variable a... | — |
 | github-actions | skill | Create, debug, and test GitHub Actions workflows and custom actions. Use when building CI/CD pipelines, automating wo... | — |
 | github-agents-md-maintainer | skill | Create an automation that keeps AGENTS.md current in one or more GitHub repositories. On a schedule an agent reads th... | `/agents-md:setup` |
+| github-comment-cleanup | skill | Create an automation that runs the comment-cleanup skill on GitHub repositories on a schedule and opens one pull requ... | `/comment-cleanup:setup` |
 | github-delivery-watchdog | skill | Periodically check pull requests and merge only current heads with independent review, tests, and passing CI. | `/github-delivery-watchdog` |
 | github-issue-to-pr | skill | Create an automation that implements GitHub issues when a configurable trigger label is applied. Clones the default b... | `/issue-to-pr:setup` |
 | github-issue-triage | skill | Prioritize open issues and establish acceptance criteria before marking them ready for development. | `/github-issue-triage` |
@@ -155,14 +157,7 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | github-repo-monitor | skill | Create a cron automation that polls a GitHub repository for issue and PR comments containing a configurable trigger p... | `/github-monitor:poll` |
 | github-stale-ci-pr-closer | skill | Warn and close abandoned pull requests whose required CI remains failing. | `/github-stale-ci-pr-closer` |
 | gitlab | skill | Interact with GitLab repositories, merge requests, and APIs using the GITLAB_TOKEN environment variable. Use when wor... | — |
-| gitlab-commit-push-mr | skill | Commit, push, and open a GitLab merge request via the GitLab API (glab). Use when asked to ship/open an MR on GitLab,... | `/gitlab-commit-push-mr` |
-| gitlab-fix-ci | skill | Find failing CI jobs, inspect logs, and apply focused fixes. Use when branch CI is failing and needs a fast, iterativ... | `/gitlab-fix-ci` |
 | gitlab-issue-to-mr | skill | Create an automation that implements GitLab issues when a configurable trigger label is applied. Polls the projects d... | `/issue-to-mr:setup` |
-| gitlab-loop-on-ci | skill | Watches GitLab CI runs on the current branch and iterates on failures until all checks pass. Uses glab CLI to monitor... | `/gitlab-loop-on-ci` |
-| gitlab-mr-reviewer | skill | Create an automation that reviews GitLab merge requests when a configurable trigger label is applied. Starts one Open... | `/mr-reviewer:setup` |
-| gitlab-resolve-mr-feedback | skill | Judge GitLab MR review feedback centrally, apply valid fixes, and complete review threads with resolution verified vi... | `/gitlab-resolve-mr-feedback` |
-| gitlab-review-and-ship | skill | Run a structured review, close key issues, and ship changes via MR. Use when reviewing changes before shipping, closi... | `/gitlab-review-and-ship` |
-| glab | skill | GitLab CLI (glab) for working with GitLab from the command line. Read this skill before running any glab or GitLab AP... | — |
 | incident-retrospective | skill | Create an automation that drafts incident retrospectives by gathering incident-channel messages from Slack, collectin... | `/incident-retro:setup` |
 | iterate | skill | Iterate on a GitHub pull request — drive it through CI, code review, and QA until merge-ready. Monitors state, fixes ... | `/iterate`, `/verify`, `/babysit` |
 | jira-issue-to-pr | skill | Deploy a cron-based OpenHands automation that opens a GitHub pull request, a GitLab merge request or a Bitbucket pull... | — |
@@ -185,13 +180,11 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | plain-english-content | skill | Write and edit clear, accessible prose in a plain English content style: active voice, front-loaded content, sentence... | — |
 | pr-review | plugin | Automated PR code review — analyzes diffs and posts inline review comments via the GitHub API. | — |
 | prd | skill | Generate a Product Requirements Document (PRD) for a new feature through an interactive clarifying-question workflow.... | `/prd` |
-| pstack | plugin | Rigorous engineering skills and 24 one-rule principles: verify against real artifacts, fix root causes, review hard, ... | — |
 | qa-changes | plugin | Validate pull request changes by actually running the code — setting up the environment, exercising changed behavior,... | — |
 | release-notes | plugin | Generate consistent, well-structured release notes from git history. Produces categorized changelog with breaking cha... | `/release-notes` |
 | research-brief | skill | Create a recurring automation that researches a topic using Tavily web search and publishes a structured brief to Not... | `/research-brief:setup` |
 | runtime-api-configs | plugin | Manage warm sandbox pools on OpenHands Enterprise from a Python CLI: list, template, save, and delete warm runtime co... | — |
 | security | skill | Security best practices for secure coding, authentication, authorization, and data protection. Use when developing fe... | — |
-| security-audit | skill | Security guidance and vulnerability review for codebases, APIs, services, CLI tools, libraries, and daemons. Use for ... | — |
 | show-me | skill | Help the user understand the current topic visually with concise diagrams, code-shape sketches, and focused HTML arti... | — |
 | simplified-technical-english | skill | Write explanations and chat in the style of ASD-STE100 Simplified Technical English: short active sentences, one idea... | — |
 | skill-creator | skill | Guide for creating effective skills. This skill should be used when users want to create a new skill (or update an ex... | — |
@@ -202,7 +195,6 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | swift-linux | skill | Install and configure Swift programming language on Debian Linux for server-side development. Use when building Swift... | — |
 | technical-writing | skill | Write and revise technical explanations in flowing, direct, conversational prose that stays concise without becoming ... | — |
 | theme-factory | skill | Toolkit for styling artifacts with a theme. These artifacts can be slides, docs, reportings, HTML landing pages, etc.... | — |
-| thermos | plugin | Thermo-nuclear branch review: deep correctness and security audits plus harsh maintainability rubrics, with subagent ... | — |
 | ticket-to-code-change | skill | Set up Linear ticket-to-code-change automations for GitHub, GitLab, and Bitbucket. | `/ticket-to-code-change:setup` |
 | upstream-fork-sync | skill | Keep a long-lived fork in sync with its upstream. Creates a cron automation that fetches upstream changes, rebases lo... | `/upstream-fork-sync:setup` |
 | use-jev | skill | Use Jev, a general classifier, for typed choices, scores, and yes/no probabilities in software. | — |

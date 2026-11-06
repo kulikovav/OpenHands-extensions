@@ -104,7 +104,7 @@ Replace `CHANNEL_NAMES_HERE` with the comma-separated names the user provided.
 
 **If `conversations.list` returns `missing_scope` or `not_authed`:**
 Inform the user: *"The token doesn't have permission to list channels. Please
-provide the channel IDs directly (right-click a channel in Slack → Copy link  - 
+provide the channel IDs directly (right-click a channel in Slack → Copy link -
 the last path segment starting with `C` is the ID)."*
 
 **If the bot token lacks `channels:read`** for private channels, the user can
