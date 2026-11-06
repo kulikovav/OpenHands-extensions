@@ -2,6 +2,8 @@
 
 Dispatch generic subagents with **bounded parallelism** using the platform's subagent primitive (e.g., `Agent` in Claude Code, `spawn_agent` in Codex) where available; otherwise run the work inline or serially. Omit the `mode` parameter so the user's configured permission settings apply.
 
+A spawned worker or peer starts a new context and does not continue the parent conversation.
+
 A generic subagent is one whose whole brief is the prompt you send it. When the host's subagent tool makes you name an agent, use only a name you have seen the host list, and list its agents before the first dispatch if you have not. Pick the plain one that adds no role of its own, which still counts as a generic subagent. Never pick a specialist, such as a reviewer or worker agent, whose own role prompt, output format, or tool limits would replace or narrow your prompt.
 
 Respect the harness's active-subagent limit: dispatch only as many selected reviewers as it accepts and queue the remainder. Treat active-agent/thread/concurrency-limit spawn errors as backpressure, not reviewer failure: the harness is full, so wait for a slot rather than marking the reviewer failed. Keep rejected reviewers queued while active work finishing, or a supported release of an agent, can free capacity, and retry when a slot frees. When capacity cannot recover, use the incomplete-stop condition in Phase 2 (dispatch) rather than retrying indefinitely. Record a reviewer as failed only after a successful dispatch times out or fails, or when dispatch fails for a non-capacity reason that survives correcting the invocation.
@@ -14,7 +16,7 @@ Each selected reviewer needs three files in full: its persona asset `references/
 
 - `coherence-reviewer`: cheapest capable extraction/reasoning tier.
 - `security-lens-reviewer`, `feasibility-reviewer`, `product-lens-reviewer`, `adversarial-document-reviewer`: inherit the parent model unless the harness has an established high-capability review tier.
-- `design-lens-reviewer`, `scope-guardian-reviewer`: platform mid-tier model.
+- `design-lens-reviewer`, `scope-guardian-reviewer`, and the lite reviewer from `references/depth.md`: platform mid-tier model.
 
 If the user's or project's active instructions or the live prompt name a model for this subagent, use that model instead of the default tier above. They can name it by the subagent's tier, by its prompt-asset name, or for the subagents being dispatched. Without such an instruction, a model configured for this subagent's role takes precedence over the default tier.
 

@@ -1,8 +1,8 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "compound-engineering",
-  "version": "3.34.0",
-  "description": "Compound Engineering - brainstorm, plan, build, review, and compound learnings with AI agents. Bundles 36 skills for planning, code review, debugging, and git workflows.",
+  "version": "3.36.1",
+  "description": "Compound Engineering - brainstorm, plan, build, review, and compound learnings with AI agents. Bundles 37 skills for planning, code review, debugging, and git workflows.",
   "author": {
     "name": "Kieran Klaassen and Trevin Chow",
     "email": "contact@every.to"

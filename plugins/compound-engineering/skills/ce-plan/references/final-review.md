@@ -12,7 +12,7 @@ Before finalizing, check:
 - Every major decision is grounded in the origin document or research
 - Material claims about existing code and fixtures match repository evidence; unresolved prerequisites that prevent implementation are recorded as blockers. Planned additions need not exist yet.
 - Each implementation unit is concrete, dependency-ordered, and implementation-ready
-- When the work ships as several PRs, the PR grouping meets the three delivery conditions in Phase 3.3: one creator per shared artifact, safe after every merge and deploy, and parallel PRs that do not conflict. Each group's `Waits on:` line gives the kind of every wait and names any deployment that must be live first
+- When the work ships as several PRs, every group except the first names a reason Phase 3.3 accepts for being a separate PR, and the PR grouping meets the three delivery conditions there: one creator per shared artifact, safe after every merge and deploy, and parallel PRs that do not conflict. Each group's `Waits on:` line gives the kind of every wait and names any deployment that must be live first
 - If test-first proof, characterization coverage, smoke-first verification, or another execution direction was explicit or strongly implied, the relevant units carry it forward with a lightweight natural-language `Execution note`
 - Each feature-bearing unit has test scenarios for the behavior it builds (happy path, plus edge cases, error handling, or integration where the unit has them), right-sized to the unit's complexity, not padded or skimped
 - Test scenarios name specific inputs, actions, and expected outcomes without becoming test code
@@ -94,7 +94,7 @@ Plan written to <absolute path to plan>
 
 **The pipeline-mode exception SKILL.md points here for:** when research produced invalidating evidence (infeasible, wrong-thing, destructive) against any session-settled decision in play for the run - whether carried in the caller brief or already carried as a `session-settled:` label in the artifact being enriched (brainstorm Key Decisions or plan KTDs) - do not write the plan and do not resolve silently - return a blocked report to the caller containing the token `settled-decision-invalidated`, the decision, and the reason, parallel to the non-software pipeline stop in `references/universal-planning.md`, so the caller can stop.
 
-**CONCEPTS.md gap-fill (only if the file already exists):** If the plan body uses a domain term whose definition is missing from `CONCEPTS.md`, add the entry. **Domain entities, named processes, and status concepts with project-specific meaning only** - not file paths, class names, function signatures, or implementation decisions. `CONCEPTS.md` is a glossary, not a spec or catch-all. A term whose whole meaning an existing entry already carries is a refinement of that entry, not a new heading. Follow the format set by existing entries. Apply silently. Skip entirely if `CONCEPTS.md` does not exist - only ce-compound and ce-compound-refresh create the file or fold entries together, and only ce-compound-refresh retires or deletes an entry.
+**CONCEPTS.md gap-fill (only if the file already exists):** If the plan body uses a domain term whose definition is missing from `CONCEPTS.md`, add the entry. **Domain entities, named processes, and status concepts with project-specific meaning only** - not file paths, class names, function signatures, or implementation decisions. `CONCEPTS.md` is a glossary, not a spec or catch-all. A term whose whole meaning an existing entry already carries is a refinement of that entry, not a new heading. Follow the format set by existing entries. Apply silently. Skip entirely if `CONCEPTS.md` does not exist - only ce-compound creates the file or folds entries together, and only its refresh job retires or deletes an entry.
 
 #### 5.3 Confidence Check and Deepening
 
@@ -109,7 +109,7 @@ Interactive mode exists because on-demand deepening is a different situation for
 Determine the plan depth from the document:
 - **Lightweight** - small, bounded, low ambiguity, usually 2-4 implementation units
 - **Standard** - moderate complexity, some technical decisions, usually 3-6 units
-- **Deep** - cross-cutting, high-risk, or strategically important work, usually 4-8 units or delivered as several PRs
+- **Deep** - cross-cutting, high-risk, or strategically important work, usually 4-8 units
 
 Build a risk profile. Treat these as high-risk signals:
 - Authentication, authorization, or security-sensitive behavior
