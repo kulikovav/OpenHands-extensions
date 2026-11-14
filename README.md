@@ -100,7 +100,7 @@ The JS and Python versions are kept in lock-step by `release-please` and guarded
 ## Extensions Catalog
 
 <!-- BEGIN AUTO-GENERATED CATALOG -->
-This repository contains **2 marketplace(s)** with **93 extensions** (79 skills, 14 plugins).
+This repository contains **2 marketplace(s)** with **87 extensions** (72 skills, 15 plugins).
 
 ### large-codebase
 
@@ -119,7 +119,7 @@ OpenHands skills for interacting, improving, and refactoring large codebases
 
 Official skills and plugins for OpenHands — the open-source AI software engineer.
 
-**89 extensions** (77 skills, 12 plugins)
+**83 extensions** (70 skills, 13 plugins)
 
 | Name | Type | Description | Commands |
 |------|------|-------------|----------|
@@ -158,14 +158,8 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | github-repo-monitor | skill | Create a cron automation that polls a GitHub repository for issue and PR comments containing a configurable trigger p... | `/github-monitor:poll` |
 | github-stale-ci-pr-closer | skill | Warn and close abandoned pull requests whose required CI remains failing. | `/github-stale-ci-pr-closer` |
 | gitlab | skill | Interact with GitLab repositories, merge requests, and APIs using the GITLAB_TOKEN environment variable. Use when wor... | — |
-| gitlab-commit-push-mr | skill | Commit, push, and open a GitLab merge request via the GitLab API (glab). Use when asked to ship/open an MR on GitLab,... | `/gitlab-commit-push-mr` |
-| gitlab-fix-ci | skill | Find failing CI jobs, inspect logs, and apply focused fixes. Use when branch CI is failing and needs a fast, iterativ... | `/gitlab-fix-ci` |
 | gitlab-issue-to-mr | skill | Create an automation that implements GitLab issues when a configurable trigger label is applied. Polls the projects d... | `/issue-to-mr:setup` |
-| gitlab-loop-on-ci | skill | Watches GitLab CI runs on the current branch and iterates on failures until all checks pass. Uses glab CLI to monitor... | `/gitlab-loop-on-ci` |
-| gitlab-mr-reviewer | skill | Create an automation that reviews GitLab merge requests when a configurable trigger label is applied. Starts one Open... | `/mr-reviewer:setup` |
-| gitlab-resolve-mr-feedback | skill | Judge GitLab MR review feedback centrally, apply valid fixes, and complete review threads with resolution verified vi... | `/gitlab-resolve-mr-feedback` |
-| gitlab-review-and-ship | skill | Run a structured review, close key issues, and ship changes via MR. Use when reviewing changes before shipping, closi... | `/gitlab-review-and-ship` |
-| glab | skill | GitLab CLI (glab) for working with GitLab from the command line. Read this skill before running any glab or GitLab AP... | — |
+| gitlab-workflows | plugin | GitLab workflow skills built on the glab CLI: commit and open a merge request, review and ship, resolve MR feedback, ... | — |
 | incident-retrospective | skill | Create an automation that drafts incident retrospectives by gathering incident-channel messages from Slack, collectin... | `/incident-retro:setup` |
 | iterate | skill | Iterate on a GitHub pull request — drive it through CI, code review, and QA until merge-ready. Monitors state, fixes ... | `/iterate`, `/verify`, `/babysit` |
 | jira-issue-to-pr | skill | Deploy a cron-based OpenHands automation that opens a GitHub pull request, a GitLab merge request or a Bitbucket pull... | — |

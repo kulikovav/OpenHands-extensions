@@ -1,1 +1,0 @@
-../../gitlab/scripts/gitlab_client.py

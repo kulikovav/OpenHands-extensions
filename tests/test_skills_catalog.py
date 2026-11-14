@@ -8,6 +8,7 @@ Covers:
 """
 
 import json
+import re
 import subprocess
 import textwrap
 from pathlib import Path
@@ -690,6 +691,51 @@ class TestGeneratedDefaultEnabled:
             if (DEFAULT_ENABLED_SKILL_NAMES.length === 0) process.exit(1);
         """)
         run_node(script)
+
+
+class TestPluginSkillsCatalog:
+    """The generated export a host uses to resolve plugin-bundled launch commands."""
+
+    def _expected(self) -> set[tuple[str, str]]:
+        def name_of(skill_md: Path, fallback: str) -> str:
+            match = re.search(r"^name:\s*(.+)$", skill_md.read_text(), re.MULTILINE)
+            return match.group(1).strip() if match else fallback
+
+        catalog_names = {
+            name_of(path / "SKILL.md", path.name)
+            for path in (ROOT / "skills").iterdir()
+            if path.is_dir() and (path / "SKILL.md").is_file()
+        }
+        expected: set[tuple[str, str]] = set()
+        for plugin_dir in sorted((ROOT / "plugins").iterdir()):
+            skills_dir = plugin_dir / "skills"
+            if not skills_dir.is_dir():
+                continue
+            for skill_dir in sorted(skills_dir.iterdir()):
+                skill_md = skill_dir / "SKILL.md"
+                if not skill_md.is_file():
+                    continue
+                name = name_of(skill_md, skill_dir.name)
+                if name in catalog_names:
+                    continue
+                expected.add((plugin_dir.name, name))
+        return expected
+
+    def test_lists_every_plugin_only_skill_once_with_its_source(self):
+        script = textwrap.dedent("""\
+            import { PLUGIN_SKILLS_CATALOG } from './skills/index.js';
+            import { existsSync } from 'node:fs';
+            for (const entry of PLUGIN_SKILLS_CATALOG) {
+              const source = `plugins/${entry.plugin}/skills/${entry.name}/SKILL.md`;
+              if (!existsSync(source)) {
+                console.error('missing source: ' + source);
+                process.exit(1);
+              }
+            }
+            process.stdout.write(JSON.stringify(PLUGIN_SKILLS_CATALOG.map(e => [e.plugin, e.name])));
+        """)
+        actual = {tuple(pair) for pair in json.loads(run_node(script).stdout)}
+        assert actual == self._expected()
 
 
 class TestShowMeDefaultSkill:

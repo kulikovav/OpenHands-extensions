@@ -22,6 +22,15 @@ def load_catalog_entries(relative_path: str, pattern: str = "*.json"):
     return entries
 
 
+def _find_skill_dir(skill: str) -> Path | None:
+    """Resolve a skill id to its directory in the catalog or a bundled plugin."""
+    candidates = [ROOT / "skills" / skill, *sorted(ROOT.glob(f"plugins/*/skills/{skill}"))]
+    return next(
+        (path for path in candidates if (path / "SKILL.md").is_file()),
+        None,
+    )
+
+
 def test_catalog_ids_are_unique_and_automations_reference_things_that_exist():
     integrations = load_catalog_entries("integrations/catalog")
     automations = load_catalog_entries("automations/catalog", "*/manifest.json")
@@ -41,9 +50,11 @@ def test_catalog_ids_are_unique_and_automations_reference_things_that_exist():
         assert set(required) - known_integration_ids == set()
 
         # The launch command is looked up from this skill rather than stored on
-        # the entry, so a broken link is a card that launches nothing.
+        # the entry, so a broken link is a card that launches nothing. The skill
+        # may ship in the catalog or inside a plugin that bundles it.
         skill = automation.get("skill", automation["id"])
-        assert (ROOT / "skills" / skill / "SKILL.md").is_file(), (
+        skill_dir = _find_skill_dir(skill)
+        assert skill_dir is not None, (
             f"{automation['id']}: skill '{skill}' has no SKILL.md"
         )
 

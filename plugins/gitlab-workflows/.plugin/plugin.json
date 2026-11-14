@@ -1,0 +1,21 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "gitlab-workflows",
+  "version": "1.0.0",
+  "description": "GitLab workflow skills built on the glab CLI: commit and open a merge request, review and ship, resolve MR feedback, fix CI, loop on CI, and set up the MR-reviewer automation. Bundles 7 GitLab skills.",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "gitlab",
+    "glab",
+    "merge-request",
+    "code-review",
+    "automation",
+    "ci"
+  ]
+}

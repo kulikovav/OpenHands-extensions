@@ -150,11 +150,11 @@
       "entrypoint": "python3 worker.py",
       "timeout": 300,
       "files": {
-        "main.py": "skills/gitlab-mr-reviewer/scripts/main.py",
+        "main.py": "plugins/gitlab-workflows/skills/gitlab-mr-reviewer/scripts/main.py",
         "agent_conversation.py": "skills/github/scripts/agent_conversation.py",
         "gitlab_client.py": "skills/gitlab/scripts/gitlab_client.py",
-        "maintainer_handoff.py": "skills/gitlab-mr-reviewer/scripts/maintainer_handoff.py",
-        "worker.py": "skills/gitlab-mr-reviewer/scripts/worker.py"
+        "maintainer_handoff.py": "plugins/gitlab-workflows/skills/gitlab-mr-reviewer/scripts/maintainer_handoff.py",
+        "worker.py": "plugins/gitlab-workflows/skills/gitlab-mr-reviewer/scripts/worker.py"
       },
       "config": {
         "projects": "{{form.projects}}",

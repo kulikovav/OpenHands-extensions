@@ -32,6 +32,22 @@ export interface SkillCatalogEntry {
 
 export const SKILLS_CATALOG: SkillCatalogEntry[];
 
+/**
+ * A skill bundled inside a plugin rather than listed in the skill catalog.
+ *
+ * A catalog skill of the same name is not repeated here, because the catalog
+ * entry is the one hosts resolve first.
+ */
+export interface PluginSkillEntry {
+  name: string;
+  description: string;
+  triggers: string[];
+  /** Directory name of the plugin that bundles the skill. */
+  plugin: string;
+}
+
+export const PLUGIN_SKILLS_CATALOG: PluginSkillEntry[];
+
 /** Names of the entries whose `defaultEnabled` is `true`, in catalog order. */
 export const DEFAULT_ENABLED_SKILL_NAMES: readonly string[];
 
