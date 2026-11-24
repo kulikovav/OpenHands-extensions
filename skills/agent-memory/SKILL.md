@@ -13,8 +13,8 @@ Read memory before starting work, and record an outcome before finishing.
 ## Shared memory service
 
 When `MEMORY_API_URL` and `MEMORY_TOKEN` are both set and non-empty, this run
-uses the deployment's shared memory service. The token carries the namespace,
-automation id, and run id, so never name a namespace or an id yourself.
+uses the deployment's shared memory service. Never name a namespace or a run id
+yourself; the token is the only authority.
 
 - Before starting: run `python3 <this skill's directory>/scripts/memory.py recall`.
   The command prints the service's `<UNTRUSTED_CONTENT>` block inside a

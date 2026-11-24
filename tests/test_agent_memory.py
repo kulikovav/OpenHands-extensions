@@ -55,6 +55,15 @@ def _token(
     return f"v1.{payload.decode()}.signature"
 
 
+# The memory service and the SDK mint pin this exact string; this skill must
+# read the same bytes.
+GOLDEN_TOKEN = (
+    "v1.eyJhdXRvbWF0aW9uX2lkIjoiYXV0b21hdGlvbi1kZW1vIiwiZXhwIjoxOTAwMDAw"
+    "MDAwLCJuYW1lc3BhY2UiOiJhdXRvbWF0aW9uLWRlbW8iLCJydW5faWQiOiJydW4tZGVt"
+    "byJ9.ALavbc90AcajCtOlx4nRLCk3PI3riQ-rsdte5E9WUtA"
+)
+
+
 class _StubService:
     """The slice of the memory service contract the skill depends on."""
 
@@ -62,6 +71,7 @@ class _StubService:
         self.entries = []
         self.requests = []
         self.index_block = None
+        self.last_block = None
         self.post_status = None
         self._idempotent = {}
         self._server = ThreadingHTTPServer(("127.0.0.1", 0), self._handler())
@@ -84,6 +94,7 @@ class _StubService:
                     block = service.index_block
                     if block is None:
                         block = service._render_index()
+                    service.last_block = block
                     body = json.dumps(
                         {
                             "namespace": "automation-a",
@@ -141,12 +152,8 @@ class _StubService:
         return Handler
 
     def _render_index(self) -> str:
-        lines = [
-            f"- id={entry['id']} source={entry['source']} at={entry['created_at']}\n  {entry['content']}"
-            for entry in reversed(self.entries)
-        ]
-        body = "\n".join(lines) if lines else "no remembered knowledge for this namespace yet."
-        return f"<UNTRUSTED_CONTENT>\n{body}\n</UNTRUSTED_CONTENT>"
+        body = "\n".join(entry["content"] for entry in self.entries)
+        return f"<index>\n{body}\n</index>"
 
 
 @pytest.fixture
@@ -178,11 +185,8 @@ def test_remember_appends_one_entry_and_recall_returns_it(memory, service, capsy
     assert memory.main(["recall"]) == 0
 
     recalled = capsys.readouterr().out
-    assert "<MEMORY_CONTEXT>" in recalled
-    assert "<UNTRUSTED_CONTENT>" in recalled
     assert "Deploys use blue-green switches." in recalled
-    assert recalled.index("<MEMORY_CONTEXT>") < recalled.index("<UNTRUSTED_CONTENT>")
-    assert recalled.rstrip().endswith("</MEMORY_CONTEXT>")
+    assert recalled == f"<MEMORY_CONTEXT>\n{service.last_block}\n</MEMORY_CONTEXT>\n"
 
 
 # ── Dual mode: without the service, AGENTS.md is still read and written ──────
@@ -226,14 +230,24 @@ def test_two_remember_calls_with_one_fact_store_one_entry(memory, service, capsy
     assert memory.main(["remember", "--fact", fact]) == 0
 
     capsys.readouterr()
-    assert len(service.entries) == 1
     keys = [
         request["headers"]["Idempotency-Key"]
         for request in service.requests
         if request["method"] == "POST"
     ]
-    claims = idempotency.claims_from_token(os.environ["MEMORY_TOKEN"])
-    assert keys == [idempotency.build_key(claims, fact)] * 2
+    assert len(keys) == 2
+    assert keys[0] == keys[1]
+    assert len(service.entries) == 1
+    assert service.entries[0]["content"] == fact
+
+
+def test_distinct_run_identities_do_not_share_a_key():
+    first = {"automation_id": "a", "run_id": "bc"}
+    second = {"automation_id": "ab", "run_id": "c"}
+
+    assert idempotency.build_key(first, "one fact") != idempotency.build_key(
+        second, "one fact"
+    )
 
 
 def test_the_token_alone_names_the_namespace_and_run(memory):
@@ -247,6 +261,14 @@ def test_the_token_alone_names_the_namespace_and_run(memory):
     assert memory._index_url("https://memory.example/", "team-a") == (
         "https://memory.example/v1/namespaces/team-a/index"
     )
+
+
+def test_the_skill_reads_the_shared_golden_wire_vector():
+    claims = idempotency.claims_from_token(GOLDEN_TOKEN)
+
+    assert claims["namespace"] == "automation-demo"
+    assert claims["automation_id"] == "automation-demo"
+    assert claims["run_id"] == "run-demo"
 
 
 # ── Safety: recalled text is data, never a command ───────────────────────────

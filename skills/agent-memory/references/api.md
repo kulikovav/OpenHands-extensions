@@ -60,9 +60,10 @@ The append body is:
 characters. A secret-shaped value answers `422`.
 
 `Idempotency-Key` is required. The skill computes it as
-`sha256(automation_id + run_id + sha256(content))`. The same key and payload
-replay the stored response and status. The same key with different content
-answers `422`. A replay while the first request is in flight answers `409`.
+`sha256(automation_id + ":" + run_id + ":" + sha256(content))`. The same key
+and payload replay the stored response and status. The same key with different
+content answers `422`. A replay while the first request is in flight answers
+`409`.
 
 ## Statuses the skill reports
 

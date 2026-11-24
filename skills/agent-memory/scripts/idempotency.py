@@ -52,5 +52,5 @@ def fact_hash(content: str) -> str:
 
 def build_key(claims: dict[str, object], content: str) -> str:
     """The idempotency key for one fact in one run."""
-    material = f"{claims['automation_id']}{claims['run_id']}{fact_hash(content)}"
+    material = f"{claims['automation_id']}:{claims['run_id']}:{fact_hash(content)}"
     return hashlib.sha256(material.encode("utf-8")).hexdigest()
