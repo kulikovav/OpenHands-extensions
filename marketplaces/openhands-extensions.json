@@ -40,7 +40,7 @@
     {
       "name": "agent-memory",
       "source": "./skills/agent-memory",
-      "description": "Persist and retrieve repository-specific knowledge using AGENTS.md files. Use when you want to save important information about a codebase (build commands, code style, workflows) for future sessions.",
+      "description": "Read remembered knowledge before starting a task and record an outcome before finishing. Uses the shared memory service when MEMORY_API_URL and MEMORY_TOKEN are set, and AGENTS.md files otherwise.",
       "category": "agent-authoring",
       "defaultEnabled": true,
       "keywords": [

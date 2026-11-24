@@ -126,7 +126,7 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | add-skill | skill | Add (import) an OpenHands skill from a GitHub repository into the current workspace. | — |
 | agent-canvas-environment | skill | Work effectively inside a local Agent Canvas environment, including local agent-server auth, safe workspace hygiene, ... | — |
 | agent-creator | skill | Create file-based sub-agents as Markdown files — no Python code required. Guides the user through a structured interv... | `/agent-creator` |
-| agent-memory | skill | Persist and retrieve repository-specific knowledge using AGENTS.md files. Use when you want to save important informa... | `/remember` |
+| agent-memory | skill | Read remembered knowledge before starting a task and record an outcome before finishing. Uses the shared memory servi... | `/remember`, `/recall` |
 | agent-sdk-builder | skill | Guided workflow for building custom AI agents using the OpenHands Software Agent SDK. Use when you want to create a n... | `/agent-builder` |
 | azure-devops | skill | Interact with Azure DevOps repositories, pull requests, and APIs using the AZURE_DEVOPS_TOKEN environment variable. U... | — |
 | bitbucket | skill | Bitbucket integration hub. Detects whether the repository is on Bitbucket Cloud or Bitbucket Data Center and directs ... | — |
