@@ -9,28 +9,29 @@ import entry3 from "./catalog/github-repo-monitor/manifest.json" with { type: "j
 import entry4 from "./catalog/github-issue-to-pr/manifest.json" with { type: "json" };
 import entry5 from "./catalog/slack-standup-digest/manifest.json" with { type: "json" };
 import entry6 from "./catalog/slack-channel-monitor/manifest.json" with { type: "json" };
-import entry7 from "./catalog/gitlab-mr-reviewer/manifest.json" with { type: "json" };
-import entry8 from "./catalog/linear-triage-assistant/manifest.json" with { type: "json" };
-import entry9 from "./catalog/linear-issue-to-github-pr/manifest.json" with { type: "json" };
-import entry10 from "./catalog/gitlab-issue-to-mr/manifest.json" with { type: "json" };
-import entry11 from "./catalog/linear-issue-to-gitlab-mr/manifest.json" with { type: "json" };
-import entry12 from "./catalog/linear-issue-to-bitbucket-pr/manifest.json" with { type: "json" };
-import entry13 from "./catalog/jira-issue-to-pr/manifest.json" with { type: "json" };
-import entry14 from "./catalog/qa-changes/manifest.json" with { type: "json" };
-import entry15 from "./catalog/jira-data-center-issue-to-bitbucket-data-center-pr/manifest.json" with { type: "json" };
-import entry16 from "./catalog/jira-issue-to-gitlab-mr/manifest.json" with { type: "json" };
-import entry17 from "./catalog/research-brief-writer/manifest.json" with { type: "json" };
-import entry18 from "./catalog/bitbucket-data-center-pr-reviewer/manifest.json" with { type: "json" };
-import entry19 from "./catalog/jira-issue-to-bitbucket-pr/manifest.json" with { type: "json" };
-import entry20 from "./catalog/github-agents-md-maintainer/manifest.json" with { type: "json" };
-import entry21 from "./catalog/github-delivery-watchdog/manifest.json" with { type: "json" };
-import entry22 from "./catalog/github-issue-triage/manifest.json" with { type: "json" };
-import entry23 from "./catalog/upstream-fork-sync/manifest.json" with { type: "json" };
+import entry7 from "./catalog/linear-triage-assistant/manifest.json" with { type: "json" };
+import entry8 from "./catalog/linear-issue-to-github-pr/manifest.json" with { type: "json" };
+import entry9 from "./catalog/gitlab-issue-to-mr/manifest.json" with { type: "json" };
+import entry10 from "./catalog/linear-issue-to-gitlab-mr/manifest.json" with { type: "json" };
+import entry11 from "./catalog/linear-issue-to-bitbucket-pr/manifest.json" with { type: "json" };
+import entry12 from "./catalog/jira-issue-to-pr/manifest.json" with { type: "json" };
+import entry13 from "./catalog/qa-changes/manifest.json" with { type: "json" };
+import entry14 from "./catalog/jira-data-center-issue-to-bitbucket-data-center-pr/manifest.json" with { type: "json" };
+import entry15 from "./catalog/jira-issue-to-gitlab-mr/manifest.json" with { type: "json" };
+import entry16 from "./catalog/research-brief-writer/manifest.json" with { type: "json" };
+import entry17 from "./catalog/bitbucket-data-center-pr-reviewer/manifest.json" with { type: "json" };
+import entry18 from "./catalog/jira-issue-to-bitbucket-pr/manifest.json" with { type: "json" };
+import entry19 from "./catalog/github-agents-md-maintainer/manifest.json" with { type: "json" };
+import entry20 from "./catalog/github-delivery-watchdog/manifest.json" with { type: "json" };
+import entry21 from "./catalog/github-issue-triage/manifest.json" with { type: "json" };
+import entry22 from "./catalog/upstream-fork-sync/manifest.json" with { type: "json" };
+import entry23 from "./catalog/gitlab-mr-reviewer/manifest.json" with { type: "json" };
 import entry24 from "./catalog/incident-retrospective-drafter/manifest.json" with { type: "json" };
 import entry25 from "./catalog/news-digest/manifest.json" with { type: "json" };
 import entry26 from "./catalog/github-stale-ci-pr-closer/manifest.json" with { type: "json" };
 import entry27 from "./catalog/archived-conversation-cleanup/manifest.json" with { type: "json" };
 import entry28 from "./catalog/github-comment-cleanup/manifest.json" with { type: "json" };
+import entry29 from "./catalog/gitlab-prd-refiner/manifest.json" with { type: "json" };
 
 export const AUTOMATION_CATALOG_ENTRIES = [
   entry0,
@@ -62,4 +63,5 @@ export const AUTOMATION_CATALOG_ENTRIES = [
   entry26,
   entry27,
   entry28,
+  entry29,
 ];

@@ -12,8 +12,6 @@ sys.path.insert(0, str(ROOT / "skills/gitlab/scripts"))
 
 import gitlab_client  # noqa: E402
 
-from github_automation_helpers import worker as load_worker  # noqa: E402
-
 
 def _configure(tmp_path, monkeypatch, projects):
     monkeypatch.chdir(tmp_path)
@@ -136,41 +134,3 @@ def test_run_projects_reports_a_permanent_http_status(tmp_path, monkeypatch, cap
     output = capsys.readouterr().out
     assert '"status": 403' in output
     assert '"retrying": false' in output
-
-
-def test_scan_failure_reports_the_underlying_cause(tmp_path, monkeypatch):
-    module = load_worker(
-        "gitlab-mr-reviewer",
-        tmp_path,
-        monkeypatch,
-        modules=(
-            "agent_conversation",
-            "gitlab_client",
-            "main",
-            "maintainer_handoff",
-            "worker",
-        ),
-    )
-    intake = module.ReviewIntake()
-
-    def start():
-        raise TimeoutError("timed out")
-
-    intake.register(
-        {
-            "project": "infr/tools/meet",
-            "number": 25,
-            "priority": 0,
-            "created_at": "",
-            "config": {"max_new_per_run": 1},
-            "start": start,
-        }
-    )
-
-    with pytest.raises(
-        RuntimeError,
-        match=r"Reviewer scan failed for MRs: !25 \(TimeoutError: timed out\)",
-    ) as excinfo:
-        intake.drain()
-
-    assert isinstance(excinfo.value.__cause__, TimeoutError)

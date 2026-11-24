@@ -1,24 +1,18 @@
 {
   "id": "gitlab-mr-reviewer",
-  "version": "1.0.0",
-  "name": "GitLab code review",
+  "version": "1.1.0",
+  "name": "GitLab merge request review",
   "category": "Code review",
-  "description": "Review merge requests that carry a trigger label, resume an outstanding reviewer request on a schedule once its head pipeline is green, classify all open non-draft merge requests that nobody requested and review eligible green heads, drain the backlog oldest-first under a small per-scan new-conversation bound, record exact-head decisions, stop early on out-of-scope changes, and optionally request a code-aware human maintainer after approval or a maintainer-decision scope stop.",
+  "description": "Review labelled GitLab merge requests at their current head after a scheduled scan or signed webhook event, and post a concise, non-approving review note with actionable findings.",
   "requires": {
     "integrations": {},
     "features": [
-      "customTarball",
-      "agentProfiles"
+      "customTarball"
     ]
   },
-  "popularityRank": 90,
+  "popularityRank": 78,
   "estimatedSetupMinutes": 4,
-  "exampleImplementation": "A scheduled scan of the trigger label, of open MRs (including drafts) holding an outstanding reviewer request, and of every open non-draft MR nobody requested whose current head may be green and unreviewed, or a GitLab reviewer-request event, selects an MR head and submits an idempotent subject turn. Each scheduled scan classifies the full backlog, while the global per-run quota limits only newly created review conversations; blocked and pending heads consume no launch slot, and explicit requests retain priority. The scheduled scan orders eligible heads with explicit requests first and then oldest-first, and starts at most a small configurable number of new conversations per scan across every project. The profile-backed agent clones that exact head in its runtime, applies an early repository-ownership and product/architecture scope gate, then reuses the established review workflow, runs appropriate tests, and publishes a readable native review - a merge request note bound to the exact head through a hidden marker that names the head SHA, with inline diff notes where a finding maps to a changed line, and a GitLab approval when there are no material findings. GitLab notes carry no commit attribute, so that marker is the exact-head decision record; the scanner dedupes on it, a repeat scan reconciles it, and a newer verdict supersedes an older one. A native approval, or a maintainer-decision scope stop, can then be handed to a code-aware human maintainer.",
-  "impact": {
-    "basis": "completed-runs",
-    "one": "1 MR review sweep completed",
-    "other": "{{count}} MR review sweeps completed"
-  },
+  "exampleImplementation": "Choose cron to scan labelled open merge requests or event to respond to signed merge_request webhooks from a pre-registered custom GitLab source. Verify the project, label, state and exact head against GitLab's API; the event run waits for its review to finish before publishing one note per head. Do not approve or merge.",
   "setup": {
     "version": "1.0",
     "mode": "direct",
@@ -28,29 +22,36 @@
           "schedule": {
             "type": "cron",
             "label": "Check frequency",
-            "help": "How often to look for newly labelled merge requests, outstanding reviewer requests whose pipelines have not yet finished, and open non-draft merge requests nobody requested that still need a review.",
-            "default": "*/5 * * * *",
+            "help": "How often to check for labelled merge requests.",
+            "default": "*/15 * * * *",
             "required": true
           },
           "timezone": {
             "type": "timezone",
             "label": "Timezone",
-            "help": "Timezone the schedule is interpreted in.",
             "default": "UTC",
-            "required": true
+            "required": true,
+            "help": "Timezone for the polling schedule."
           }
         },
         "event": {
+          "source": {
+            "type": "event-source",
+            "label": "Signed GitLab webhook source",
+            "help": "First register a custom webhook with standard_webhooks signature verification, then select its source here. Configure GitLab 19.0+ to deliver merge request events using the same signing token. See this reviewer's README for setup steps.",
+            "default": "gitlab",
+            "required": true
+          },
           "on": {
             "type": "select",
             "label": "GitLab events",
-            "help": "Handle requests for the configured bot and its resulting native reviews.",
-            "default": "*",
+            "help": "React to merge request open, update and reopen events. The worker checks the live project, label and MR state before reviewing.",
+            "default": "merge_request",
             "required": true,
             "options": [
               {
-                "value": "*",
-                "label": "Reviewer request and completion"
+                "value": "merge_request",
+                "label": "Merge request opened or updated"
               }
             ]
           }
@@ -60,7 +61,7 @@
         "projects": {
           "type": "repo-picker",
           "label": "Projects",
-          "help": "The GitLab projects whose merge requests will be reviewed. Each is polled independently and keeps its own state, so merge request IIDs never collide between them.",
+          "help": "GitLab projects to review. Subgroups are supported.",
           "provider": "gitlab",
           "multiple": true,
           "required": true
@@ -68,7 +69,7 @@
         "triggerLabel": {
           "type": "text",
           "label": "Trigger label",
-          "help": "Merge requests carrying this label are reviewed. An open, non-draft merge request that nobody requested is also reviewed once its current head is green and carries no review yet, with the whole backlog classified each scan and only newly launched reviews counting against the configured quota.",
+          "help": "Only open merge requests carrying this label are reviewed.",
           "default": "openhands-review",
           "required": true,
           "constraints": {
@@ -76,98 +77,34 @@
             "maxLength": 50
           }
         },
-        "triggerReviewer": {
-          "type": "text",
-          "label": "Requested reviewer",
-          "help": "GitLab username whose reviewer request starts an event-driven review. GitLab keeps a reviewer assigned until they are removed, so the request is keyed by the merge request's exact head rather than by a request event.",
-          "default": "openhands-bot",
-          "required": true,
-          "constraints": {
-            "minLength": 1,
-            "maxLength": 100
-          }
-        },
-        "maxNewPerRun": {
-          "type": "number",
-          "label": "New reviews per scan",
-          "help": "Most new review conversations one scheduled scan may start, counted across every project. Keeps a first scan over a large backlog from starting an agent for every eligible merge request at once. Reviews that are already running are resumed without counting against it.",
-          "default": 2,
-          "required": true,
-          "constraints": {
-            "min": 1
-          }
-        },
-        "reviewTone": {
-          "type": "select",
-          "label": "Review tone",
-          "help": "How detailed the review notes should be.",
-          "default": "concise",
-          "required": true,
-          "options": [
-            {
-              "value": "concise",
-              "label": "Concise"
-            },
-            {
-              "value": "thorough",
-              "label": "Thorough"
-            },
-            {
-              "value": "friendly",
-              "label": "Friendly"
-            }
-          ]
-        },
-        "maintainers": {
-          "type": "text",
-          "label": "Maintainers",
-          "help": "Optional comma-separated GitLab usernames of project members. Include at least two so a maintainer-authored MR still has an eligible reviewer. After an exact-head approval, request one based on changed-path history and current review load.",
-          "default": "",
-          "required": false
-        },
         "gitlabApiUrl": {
           "type": "text",
           "label": "GitLab API URL",
-          "help": "The API root of the GitLab instance. Change it for a self-managed instance, such as https://gitlab.example.com/api/v4.",
+          "help": "HTTPS /api/v4 root of the instance. Requires a connected GitLab account or GITLAB_TOKEN; MCP-only access is not supported.",
           "default": "https://gitlab.com/api/v4",
           "required": true,
           "constraints": {
-            "minLength": 1,
+            "minLength": 15,
             "maxLength": 200
           }
-        },
-        "gitlabTokenSecret": {
-          "type": "text",
-          "label": "GitLab token secret",
-          "help": "Name of a saved Agent Server secret. Include it in the selected profile so the delegated agent can use GitLab.",
-          "default": "GITLAB_TOKEN",
-          "required": true
         }
       }
     },
     "bundle": {
-      "version": "1.0.0",
-      "entrypoint": "python3 worker.py",
-      "timeout": 300,
+      "version": "1.1.0",
+      "entrypoint": "python3 main.py",
+      "timeout": 1800,
       "files": {
-        "main.py": "plugins/gitlab-workflows/skills/gitlab-mr-reviewer/scripts/main.py",
-        "agent_conversation.py": "skills/github/scripts/agent_conversation.py",
-        "gitlab_client.py": "skills/gitlab/scripts/gitlab_client.py",
-        "maintainer_handoff.py": "plugins/gitlab-workflows/skills/gitlab-mr-reviewer/scripts/maintainer_handoff.py",
-        "worker.py": "plugins/gitlab-workflows/skills/gitlab-mr-reviewer/scripts/worker.py"
+        "main.py": "skills/gitlab-mr-reviewer/scripts/main.py",
+        "common.py": "skills/gitlab-mr-reviewer/scripts/common.py"
       },
       "config": {
         "projects": "{{form.projects}}",
         "trigger_label": "{{form.triggerLabel}}",
-        "trigger_reviewer": "{{form.triggerReviewer}}",
-        "max_new_per_run": "{{form.maxNewPerRun}}",
-        "review_tone": "{{form.reviewTone}}",
-        "maintainers": "{{form.maintainers}}",
-        "gitlab_api_url": "{{form.gitlabApiUrl}}",
-        "gitlab_token_secret": "{{form.gitlabTokenSecret}}"
+        "gitlab_api_url": "{{form.gitlabApiUrl}}"
       }
     },
-    "filter": "contains({{form.projects}}, project.path_with_namespace) && object_kind == 'merge_request' && (contains(keys(@), 'object_attributes') && ((object_attributes.action == 'approval' || object_attributes.action == 'unapproval') && user.username == '{{form.triggerReviewer}}' || contains(keys(@), 'changes') && contains(keys(changes), 'reviewers') && contains(changes.reviewers[].username, '{{form.triggerReviewer}}')))",
-    "message": "Configure the projects, trigger, review tone, optional maintainer roster, credential name, API root, per-scan new-review bound, and agent profile."
+    "filter": "object_kind == 'merge_request' && (object_attributes.action == 'open' || object_attributes.action == 'update' || object_attributes.action == 'reopen')",
+    "message": "This deployment cannot run the bundled reviewer directly. Offer a scheduled poll, or ask the user to register a signed GitLab custom webhook source named gitlab and configure its merge request webhook before setting up an event-triggered review."
   }
 }
