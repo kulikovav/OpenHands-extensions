@@ -57,7 +57,10 @@ The append body is:
 ```
 
 `source` is required, at most 512 characters. `content` is at most 65,536
-characters. A secret-shaped value answers `422`.
+characters. A secret-shaped value answers `422`. A long hex digest, including
+a full 40-character commit SHA, is secret-shaped. Store a short commit id (7 to
+12 characters) instead. Do not store a password, token, private key, or
+connection string.
 
 `Idempotency-Key` is required. The skill computes it as
 `sha256(automation_id + ":" + run_id + ":" + sha256(content))`. The same key

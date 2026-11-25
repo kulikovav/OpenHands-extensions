@@ -26,6 +26,11 @@ yourself; the token is the only authority.
   Record one durable fact about the run or the repository. The script derives
   the idempotency key from the token and the fact, so repeating the same fact
   stores one entry and a different fact stores a new one.
+- Keep the fact short and non-secret. Use a short commit id (7 to 12
+  characters), never the full 40- or 64-character hash. Do not store a
+  password, token, private key, connection string, or a long hex or base64
+  blob. The service refuses a secret-shaped value with `422`; retry with the
+  short, non-secret form.
 - Run `python3 <this skill's directory>/scripts/memory.py mode` to see which
   store is active: `network` or `file`.
 - If the service is unreachable or refuses the write, the command prints a
