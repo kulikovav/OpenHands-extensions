@@ -50,7 +50,7 @@ each repository root exactly as before.
 * IMPORTANT: ONLY LOG the information that would be helpful for different future tasks, for example, how to configure the settings, how to setup the repository. Do NOT add issue-specific information (e.g., what specific error you have ran into and how you fix it).
 
 * When adding new information:
-  - ALWAYS ask for user confirmation first by listing the exact items (numbered 1, 2, 3, etc.) you plan to save to AGENTS.md
+  - Before a manual edit, or before saving more than one item, ALWAYS ask for user confirmation first by listing the exact items (numbered 1, 2, 3, etc.) you plan to save to AGENTS.md
   - Only save the items the user approves (they may ask you to save a subset)
   - Ensure it integrates nicely with existing knowledge in AGENTS.md
   - Reorganize the content if needed to maintain clarity and organization
@@ -61,6 +61,8 @@ each repository root exactly as before.
 To read or write the file through the skill, run
 `python3 <this skill's directory>/scripts/memory.py recall` or
 `python3 <this skill's directory>/scripts/memory.py remember --fact "<one fact>"`.
-The commands append one bullet to AGENTS.md and never rewrite existing content.
+The `remember` command appends one bullet to AGENTS.md without a prompt and
+never rewrites existing content. Make a manual edit, or any edit with more than
+one item, under the confirmation rule above.
 
 When you receive this message, please review and summarize your recent actions and observations, then present a list of valuable information that should be saved in AGENTS.md to the user.
