@@ -312,6 +312,24 @@ def test_a_secret_like_fact_is_refused_cleanly(memory, service, capsys):
     assert os.environ["MEMORY_TOKEN"] not in captured.err
 
 
+@pytest.mark.parametrize(
+    "detail",
+    [
+        "a request with this idempotency key is in flight",
+        "the namespace entry cap is reached",
+    ],
+)
+def test_a_conflict_reports_the_service_detail(memory, service, capsys, detail):
+    """409 covers two causes; the agent needs the service's wording to tell them apart."""
+    service.post_status = (409, detail)
+
+    assert memory.main(["remember", "--fact", "Deploys use blue-green switches."]) == 1
+
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert detail in captured.err
+
+
 # ── Failure: an outage yields empty memory and a warning ─────────────────────
 
 

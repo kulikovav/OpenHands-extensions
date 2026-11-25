@@ -207,14 +207,11 @@ def remember(fact: str) -> int:
         label = f" {entry_id}" if isinstance(entry_id, int) else ""
         print(f"Stored memory entry{label} from {source}.")
         return 0
-    if status == 422:
+    # 409 means an in-flight write or a reached entry cap, so report the
+    # service's detail instead of guessing which one it is.
+    if status in (409, 422):
         print(
             f"error: the memory service refused the entry: {_detail(body)}",
-            file=sys.stderr,
-        )
-    elif status == 409:
-        print(
-            "error: the memory service is still storing this fact; retry the call",
             file=sys.stderr,
         )
     else:

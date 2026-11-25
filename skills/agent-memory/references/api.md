@@ -63,7 +63,8 @@ characters. A secret-shaped value answers `422`.
 `sha256(automation_id + ":" + run_id + ":" + sha256(content))`. The same key
 and payload replay the stored response and status. The same key with different
 content answers `422`. A replay while the first request is in flight answers
-`409`.
+`409`, and so does an append that would exceed the namespace entry cap. The
+`detail` field names which one.
 
 ## Statuses the skill reports
 
@@ -71,7 +72,7 @@ content answers `422`. A replay while the first request is in flight answers
 |---|---|
 | `200` (recall) | Print the block in `<MEMORY_CONTEXT>` |
 | `201` (remember) | Print the stored entry id and source |
-| `409` | Report that the write is in flight and return exit code 1 |
+| `409` | Report the service's detail and return exit code 1: the write is in flight, or the namespace entry cap is reached |
 | `422` | Report the refusal and return exit code 1 |
 | Other or unreachable | Recall prints a warning and empty memory; remember prints an error and returns exit code 1 |
 
